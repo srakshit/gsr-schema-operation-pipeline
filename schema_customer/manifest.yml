@@ -1,0 +1,12 @@
+schema:
+  name: customer
+  version: v1
+gsr:
+  region: <<region>>
+  registry:
+    name: enterprise_schemas
+  schema:
+    name: customer
+    compatibility_mode: FORWARD
+  topic:
+    - customer

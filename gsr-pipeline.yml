@@ -1,0 +1,298 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Template to Provision GSR Schema operation pipeline
+
+Parameters:
+  CodeCommitRepoName:
+    Type: String
+    Description: Name of the CodeCommit Repo
+    Default: schema-customer
+  CodeArtifactDomainName:
+    Type: String
+    Description: Name of the CodeArtifact Domain
+    Default: gsr-schema-domain
+  CodeArtifactRepositoryName:
+    Type: String
+    Description: Name of the CodeArtifactRepository
+    Default: gsr-schema-mvn-repo
+  S3Bucket:
+    Type: String
+    Description: S3 Bucket containing schema & code
+    Default: gsr-schema-pipeline-940270119111
+  CustomerSchemaCodeKey:
+    Type: String
+    Description: Key of zipped code that would be checked in CodeCommit repo
+    Default: customer_schema/schema_customer.zip
+  CodeCommitTriggerLambdaCodeKey:
+    Type: String
+    Description: Key of lambda zipped code that would be triggered by CodeCommit events
+    Default: codecommit-trigger/codecommit_lambda.zip
+  CodeBuildStateSNSTopicName:
+    Type: String
+    Description: SNS Topic to receive CodeBuild build status
+    Default: gsr_schema_notification
+  YourEmail:
+    Type: String
+    Description: Email to receieve notification
+    AllowedPattern : (^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$)
+    ConstraintDescription: Must be a valid email address
+Resources:
+  CodeCommitRepo:
+    Type: AWS::CodeCommit::Repository
+    Properties:
+      RepositoryName: !Ref CodeCommitRepoName
+      Code:
+        BranchName: master
+        S3: 
+          Bucket: !Ref S3Bucket
+          Key: !Ref CustomerSchemaCodeKey
+      Triggers: 
+        - Name: CodeCommitLambdaTrigger
+          DestinationArn: !GetAtt  CodeCommitLambdaTrigger.Arn
+          Branches:
+            - master
+          Events:
+            - updateReference
+  
+  CodeArtifactDomain:
+    Type: AWS::CodeArtifact::Domain
+    Properties:
+      DomainName: !Ref CodeArtifactDomainName
+  
+  CodeArtifactRepository:
+    Type: AWS::CodeArtifact::Repository
+    Properties:
+      RepositoryName: !Ref CodeArtifactRepositoryName
+      DomainName: !GetAtt CodeArtifactDomain.Name
+
+  ArtifactsS3Bucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Delete
+    Description: S3 bucket for GSR schema pipeline
+    Properties:
+      BucketName: !Join
+                  - '-'
+                  - - !Ref AWS::StackName
+                    - !Ref AWS::AccountId
+                    - gsr-schema-build
+
+  CodeBuildProject:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Description: CodeBuild pipeline to serialise schema
+      Name: !Sub ${AWS::StackName}-gsr-schema-build
+      ServiceRole: !GetAtt CodeBuildRole.Arn
+      Artifacts:
+        Type: S3
+        Location: !Ref ArtifactsS3Bucket
+        Name: build-output.zip
+        Path: gsr-schema-build-artifacts
+        NamespaceType: BUILD_ID
+        Packaging: ZIP
+      Cache:
+        Location: !Ref S3Bucket
+        Type: S3
+      Environment:
+        Type: LINUX_CONTAINER
+        ComputeType: BUILD_GENERAL1_SMALL
+        Image: aws/codebuild/amazonlinux2-x86_64-standard:4.0
+      Source:
+        Type: CODECOMMIT
+        Location: !Sub https://git-codecommit.${AWS::Region}.amazonaws.com/v1/repos/${CodeCommitRepoName}
+        BuildSpec: buildspec.yml
+        GitCloneDepth: 1
+      TimeoutInMinutes: 10
+      LogsConfig: 
+        CloudWatchLogs:
+          GroupName: gsr-schema-build
+          Status: ENABLED
+
+  CodeBuildRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+        - Action: ['sts:AssumeRole']
+          Effect: Allow
+          Principal:
+            Service: [codebuild.amazonaws.com]
+        Version: '2012-10-17'
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AWSCodeCommitReadOnly
+        - arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess
+      Path: /
+      Policies:
+        - PolicyName: !Sub ${AWS::StackName}-CodeBuildAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Action:
+                - logs:CreateLogGroup
+                - logs:DescribeLogGroups
+                - logs:CreateLogStream
+                - logs:DescribeLogStreams
+                - logs:PutLogEvents
+                Effect: Allow
+                Resource: !Sub 'arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:*'
+              - Action:
+                - s3:PutObject
+                - s3:GetObject
+                - s3:GetObjectVersion
+                Effect: Allow
+                Resource:
+                - !Join
+                  - ''
+                  - - 'arn:aws:s3:::'
+                    - !Ref 'S3Bucket'
+                - !Join
+                  - ''
+                  - - 'arn:aws:s3:::'
+                    - !Ref 'S3Bucket'
+                    - /*
+  
+  CodeCommitLambdaTrigger:
+    Type: AWS::Lambda::Function
+    DependsOn: CodeCommitLambdaTriggerRole
+    Properties:
+      Code:
+        S3Bucket: !Ref S3Bucket
+        S3Key: !Ref CodeCommitTriggerLambdaCodeKey
+      Description: Lambda function that will recieve CodeCommit events and will trigger CodeBuild docker image build job.
+      FunctionName: !Sub ${CodeBuildProject}-Lambda-Trigger
+      Handler: lambda_code.lambda_handler
+      MemorySize: 512
+      Role: !GetAtt CodeCommitLambdaTriggerRole.Arn
+      Runtime: python3.6
+      Timeout: 300
+      Environment:
+        Variables:
+          CODE_BUILD_PROJECT: !Ref CodeBuildProject
+  
+  CodeCommitLambdaTriggerRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+        Version: '2012-10-17'
+      Path: /
+      Policies:
+        - PolicyDocument:
+            Statement:
+              - Action:
+                  - logs:CreateLogGroup
+                  - logs:DescribeLogGroups
+                  - logs:CreateLogStream
+                  - logs:DescribeLogStreams
+                  - logs:PutLogEvents
+                Effect: Allow
+                Resource:
+                  - !Sub 'arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:*'
+                Sid: LogAccessPolicy
+              - Action:
+                  - codecommit:GetTree
+                  - codecommit:BatchGetCommits
+                  - codecommit:GetCommit
+                  - codecommit:GetCommitHistory
+                  - codecommit:GetDifferences
+                  - codecommit:GetReferences
+                  - codecommit:GetObjectIdentifier
+                  - codecommit:BatchGetCommits
+                Effect: Allow
+                Resource:
+                  - !Sub 'arn:aws:codecommit:${AWS::Region}:${AWS::AccountId}:${CodeCommitRepoName}'
+                Sid: CodeCommitRead
+              - Action:
+                  - codebuild:StartBuild
+                Effect: Allow
+                Resource:
+                  - !GetAtt CodeBuildProject.Arn
+                Sid: CodeBuildStartPolicy
+            Version: '2012-10-17'
+          PolicyName: !Sub ${AWS::StackName}-CodeCommit-Lambda-Trigger
+      RoleName: !Sub ${AWS::StackName}-CodeCommit-Lambda-Trigger-Role
+  
+  PermissionForCodeCommitToInvokeLambda:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref CodeCommitLambdaTrigger
+      Principal: codecommit.amazonaws.com
+
+  CodeBuildStatusNotificationEventRule: 
+    Type: AWS::Events::Rule
+    Properties: 
+      Description: Event Rule to notifiy CodeBuild build status
+      EventPattern: 
+        source: 
+          - aws.codebuild
+        detail-type: 
+          - CodeBuild Build State Change
+        detail: 
+          build-status: 
+            - SUCCEEDED
+      State: ENABLED
+      Targets: 
+        - 
+          Arn: !Ref CodeBuildStatusSNSTopic
+          Id: CodeBuildStateChangeNotification
+          InputTransformer:
+            InputPathsMap:
+              "build-id" : "$.detail.build-id"
+              "build-status" : "$.detail.build-status"
+              "project-name" : "$.detail.project-name"
+              "repository" : "$.detail.additional-information.source.location"
+            InputTemplate: |
+                {
+                  "build-id": "<build-id>", 
+                  "project-name": "<project-name>", 
+                  "build-status": "<build-status>",
+                  "repository": "<repository>"
+                }
+
+  EventTopicPolicy:
+    Type: 'AWS::SNS::TopicPolicy'
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: events.amazonaws.com
+            Action: 'sns:Publish'
+            Resource: '*'
+      Topics:
+        - !Ref CodeBuildStatusSNSTopic
+
+  CodeBuildStatusSNSTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Ref CodeBuildStateSNSTopicName
+      DisplayName: GSR Schema Notification
+
+  SNSSubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      Endpoint: !Ref YourEmail
+      Protocol: email
+      TopicArn: !Ref CodeBuildStatusSNSTopic
+
+  Cloud9EC2Bastion:
+    Type: AWS::Cloud9::EnvironmentEC2
+    Properties: 
+      AutomaticStopTimeMinutes: 600
+      Description: Cloud9 EC2 environment
+      InstanceType: m5.large
+      Name: !Sub ${AWS::StackName}-Cloud9EC2Bastion
+      Tags: 
+        - Key: 'Purpose'
+          Value: 'Cloud9EC2BastionHostInstance'
+Outputs:
+  CodeCommitRepositoryCloneUrl:
+    Description: CodeCommit repo clone url
+    Value: !GetAtt CodeCommitRepo.CloneUrlSsh
+  ArtifactName:
+    Description: CodeArtifact repo
+    Value: !GetAtt CodeArtifactRepository.Name
