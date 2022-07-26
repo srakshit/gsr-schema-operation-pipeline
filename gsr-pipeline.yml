@@ -43,7 +43,18 @@ Parameters:
     Type: String
     Description: Manifest filename full path in CodeCommit repo
     Default: manifest.yml
+  GlueSchemaRegistryName:
+    Type: String
+    Description: Name of Glue Schema Registry
+    Default: enterprise_schemas
+
 Resources:
+  GlueSchemaRegistry:
+    Type: AWS::Glue::Registry
+    Properties: 
+      Description: Glue Schema Registry to store all origanisation schemas
+      Name: !Ref GlueSchemaRegistryName
+
   CodeCommitRepo:
     Type: AWS::CodeCommit::Repository
     Properties:
@@ -216,6 +227,21 @@ Resources:
                 Resource:
                   - !Sub 'arn:aws:codecommit:${AWS::Region}:${AWS::AccountId}:${CodeCommitRepoName}'
                 Sid: CodeCommitRead
+              - Action:
+                  - glue:CreateRegistry
+                  - glue:CreateSchema
+                  - glue:RegisterSchemaVersion
+                  - glue:DeleteSchemaVersions
+                  - glue:PutSchemaVersionMetadata
+                  - glue:GetDifferences
+                  - glue:GetReferences
+                  - glue:GetObjectIdentifier
+                  - glue:BatchGetCommits
+                Effect: Allow
+                Resource:
+                  - !Sub 'arn:aws:codecommit:${AWS::Region}:${AWS::AccountId}:registry/*'
+                  - !Sub 'arn:aws:codecommit:${AWS::Region}:${AWS::AccountId}:schema/*'
+                Sid: AWSGlueSchemaRegistryAccess
               - Action:
                   - codebuild:StartBuild
                 Effect: Allow

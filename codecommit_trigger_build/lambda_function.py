@@ -5,9 +5,12 @@ import yaml
 import json
 import re
 from botocore.exceptions import ClientError
+from botocore.exceptions import AlreadyExistsException
 
 # Module level variables initialization
 CODE_BUILD_PROJECT = os.getenv('CODE_BUILD_PROJECT')
+AVRO_FILE_PATH = os.getenv('AVRO_FILE_PATH')
+MANIFEST_FILE_PATH = os.getenv('MANIFEST_FILE_PATH')
 
 codecommit = boto3.client('codecommit')
 cb = boto3.client('codebuild')
@@ -67,7 +70,6 @@ def getLastCommitID(repository, branch="master"):
 
 
 def getFile(repository, filePath, branch="master"):
-    print(repository, filePath)
     response = codecommit.get_file(
                 repositoryName=repository,
                 commitSpecifier=branch,
@@ -77,21 +79,13 @@ def getFile(repository, filePath, branch="master"):
     return content
 
 
-def registerSchemaInGsr(repoName, fileName):
+def registerSchemaInGsr(repoName, manifestFilePath, avroSchemaFilePath):
     doTriggerBuild = False
-
+    
     #Read manifest.yml file
-    content = getFile(repoName,fileName)
-    documents = yaml.full_load(content)
-    
-    print(documents)
-    schemaBasePath = documents['schema']['path']
-    schemaVersion = documents['schema']['version']
-    schemaFileName = documents['schema']['file_name']
-
-    
-    #Build latest avro schema filePath    
-    avroSchemaFilePath = '%s%s/%s' % (schemaBasePath, schemaVersion, schemaFileName)
+    content = getFile(repoName,manifestFilePath)
+    manifest_content = yaml.full_load(content)
+    print(manifest_content)
     
     #Read avroSchema
     avroSchema = getFile(repoName,avroSchemaFilePath)
@@ -103,25 +97,27 @@ def registerSchemaInGsr(repoName, fileName):
         #Create schema
         response = gsr.create_schema(
             RegistryId={
-                'RegistryName': documents['gsr']['registry']['name']
+                'RegistryName': manifest_content['gsr']['registry']['name']
             },
-            SchemaName=documents['gsr']['schema']['name'],
-            DataFormat='AVRO',
-            Compatibility='FORWARD',
-            Description=documents['gsr']['schema']['description'],
+            SchemaName=manifest_content['gsr']['schema']['name'],
+            DataFormat=manifest_content['gsr']['schema']['data_format'],
+            Compatibility=manifest_content['gsr']['schema']['compatibility_mode'],
+            Description=manifest_content['gsr']['schema']['description'],
             SchemaDefinition=avroSchemaStr
         )
-        print("Created new schema - " + documents['gsr']['schema']['name'])
+        print("Created new schema - " + manifest_content['gsr']['schema']['name'])
         
         #Handle malformed schema
         doTriggerBuild = True
-    except:
+    except BaseException as ex:
+        print(ex)
+    except AlreadyExistsException:
         #Register schema version in GSR
         print("Register new schema version")
         registerResponse = gsr.register_schema_version(
             SchemaId={
-                'SchemaName': documents['gsr']['schema']['name'],
-                'RegistryName': documents['gsr']['registry']['name']
+                'SchemaName': manifest_content['gsr']['schema']['name'],
+                'RegistryName': manifest_content['gsr']['registry']['name']
             },
             SchemaDefinition=avroSchemaStr
         )
@@ -133,8 +129,8 @@ def registerSchemaInGsr(repoName, fileName):
             print("Delete schema version as the version registration failed")
             delResponse = gsr.delete_schema_versions(
                 SchemaId={
-                    'SchemaName': documents['gsr']['schema']['name'],
-                    'RegistryName': documents['gsr']['registry']['name']
+                    'SchemaName': manifest_content['gsr']['schema']['name'],
+                    'RegistryName': manifest_content['gsr']['registry']['name']
                 },
                 Versions=str(registerResponse['VersionNumber'])
             )
@@ -144,7 +140,7 @@ def registerSchemaInGsr(repoName, fileName):
 def lambda_handler(event, context):
 
     # Initialize needed variables
-    fileNames_allowed = ["manifest.yml", "^.*\.(avsc)$"]
+    fileNames_allowed = ["^.*\.(avsc)$"]
     commit_hash = event['Records'][0]['codecommit']['references'][0]['commit']
     region = event['Records'][0]['awsRegion']
     repo_name = event['Records'][0]['eventSourceARN'].split(':')[-1]
@@ -166,25 +162,21 @@ def lambda_handler(event, context):
         commit_hash, previousCommitID))
 
     differences = getFileDifferences(repo_name, commit_hash, previousCommitID)
-    print(differences)
 
 
-    # Check whether specific file or specific extension file is added/modified
+    # Check whether any avro file is added/modified
     # Register the schema in GSR
     # and set flag for build triggering
     doTriggerBuild = False
     for diff in differences:
         if 'afterBlob' in diff:
-            fileName = os.path.basename(str(diff['afterBlob']['path']))
-            filePath = str(diff['afterBlob']['path'])
-            print(fileName)
+            schemaFileName = os.path.basename(str(diff['afterBlob']['path']))
+            avroSchemaFilePath = AVRO_FILE_PATH + schemaFileName
             
+            #find match for files with avro extension
             for fa in fileNames_allowed:
-                if re.search(fa, fileName):
-                    doTriggerBuild = registerSchemaInGsr(repo_name, filePath)
-            # if (fileName in fileNames_allowed):
-                # Register schema in GSR
-            #    doTriggerBuild = registerSchemaInGsr(repo_name, fileName)
+                if re.search(fa, schemaFileName):
+                    doTriggerBuild = registerSchemaInGsr(repo_name, MANIFEST_FILE_PATH, avroSchemaFilePath)
 
 
     # Trigger codebuild job to build the repository if needed
