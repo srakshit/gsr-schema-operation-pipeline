@@ -9,6 +9,7 @@ __pycache__/
 # Distribution / packaging
 .Python
 build/
+package/
 develop-eggs/
 dist/
 downloads/
@@ -132,4 +133,5 @@ dmypy.json
 .DS_Store
 .git
 .gitignore
-
+codecommit_lambda.zip
+schema_customer.zip
