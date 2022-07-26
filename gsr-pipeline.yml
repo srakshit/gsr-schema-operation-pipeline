@@ -35,6 +35,10 @@ Parameters:
     Description: Email to receieve notification
     AllowedPattern : (^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$)
     ConstraintDescription: Must be a valid email address
+  AvroFilePath:
+    Type: String
+    Description: Avro file path in CodeCommit repo
+    Default: src/main/resources/avro/
 Resources:
   CodeCommitRepo:
     Type: AWS::CodeCommit::Repository
@@ -158,14 +162,15 @@ Resources:
         S3Key: !Ref CodeCommitTriggerLambdaCodeKey
       Description: Lambda function that will recieve CodeCommit events and will trigger CodeBuild docker image build job.
       FunctionName: !Sub ${CodeBuildProject}-Lambda-Trigger
-      Handler: lambda_code.lambda_handler
+      Handler: lambda_function.lambda_handler
       MemorySize: 512
       Role: !GetAtt CodeCommitLambdaTriggerRole.Arn
-      Runtime: python3.6
+      Runtime: python3.9
       Timeout: 300
       Environment:
         Variables:
           CODE_BUILD_PROJECT: !Ref CodeBuildProject
+          AVRO_FILE_PATH: !Ref AvroFilePath
   
   CodeCommitLambdaTriggerRole:
     Type: AWS::IAM::Role
@@ -194,6 +199,7 @@ Resources:
                 Sid: LogAccessPolicy
               - Action:
                   - codecommit:GetTree
+                  - codecommit:GetFile
                   - codecommit:BatchGetCommits
                   - codecommit:GetCommit
                   - codecommit:GetCommitHistory
@@ -278,17 +284,6 @@ Resources:
       Endpoint: !Ref YourEmail
       Protocol: email
       TopicArn: !Ref CodeBuildStatusSNSTopic
-
-  Cloud9EC2Bastion:
-    Type: AWS::Cloud9::EnvironmentEC2
-    Properties: 
-      AutomaticStopTimeMinutes: 600
-      Description: Cloud9 EC2 environment
-      InstanceType: m5.large
-      Name: !Sub ${AWS::StackName}-Cloud9EC2Bastion
-      Tags: 
-        - Key: 'Purpose'
-          Value: 'Cloud9EC2BastionHostInstance'
 Outputs:
   CodeCommitRepositoryCloneUrl:
     Description: CodeCommit repo clone url

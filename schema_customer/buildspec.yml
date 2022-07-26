@@ -7,8 +7,7 @@ phases:
   build:
     commands:
       - java -version
-      - export CODEARTIFACT_AUTH_TOKEN=`aws codeartifact get-authorization-token --domain <<codeartifact-domain-name>> --domain-owner 
-<<account-id>> --query authorizationToken --output text`
+      - export CODEARTIFACT_AUTH_TOKEN=`aws codeartifact get-authorization-token --region <<region>> --domain <<codeartifact-domain-name>> --domain-owner <<account-id>> --query authorizationToken --output text`
       - mvn -s settings.xml clean package deploy
 artifacts:
   files:

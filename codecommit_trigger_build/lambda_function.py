@@ -3,6 +3,7 @@ import os
 import boto3
 import yaml
 import json
+import re
 from botocore.exceptions import ClientError
 
 # Module level variables initialization
@@ -66,6 +67,7 @@ def getLastCommitID(repository, branch="master"):
 
 
 def getFile(repository, filePath, branch="master"):
+    print(repository, filePath)
     response = codecommit.get_file(
                 repositoryName=repository,
                 commitSpecifier=branch,
@@ -81,7 +83,8 @@ def registerSchemaInGsr(repoName, fileName):
     #Read manifest.yml file
     content = getFile(repoName,fileName)
     documents = yaml.full_load(content)
-
+    
+    print(documents)
     schemaBasePath = documents['schema']['path']
     schemaVersion = documents['schema']['version']
     schemaFileName = documents['schema']['file_name']
@@ -141,8 +144,7 @@ def registerSchemaInGsr(repoName, fileName):
 def lambda_handler(event, context):
 
     # Initialize needed variables
-    file_extension_allowed = [".yml", "yaml"]
-    fileNames_allowed = ["manifest"]
+    fileNames_allowed = ["manifest.yml", "^.*\.(avsc)$"]
     commit_hash = event['Records'][0]['codecommit']['references'][0]['commit']
     region = event['Records'][0]['awsRegion']
     repo_name = event['Records'][0]['eventSourceARN'].split(':')[-1]
@@ -173,11 +175,16 @@ def lambda_handler(event, context):
     doTriggerBuild = False
     for diff in differences:
         if 'afterBlob' in diff:
-            root, extension = os.path.splitext(str(diff['afterBlob']['path']))
             fileName = os.path.basename(str(diff['afterBlob']['path']))
-            if ((extension in file_extension_allowed) or (fileName in fileNames_allowed)):
+            filePath = str(diff['afterBlob']['path'])
+            print(fileName)
+            
+            for fa in fileNames_allowed:
+                if re.search(fa, fileName):
+                    doTriggerBuild = registerSchemaInGsr(repo_name, filePath)
+            # if (fileName in fileNames_allowed):
                 # Register schema in GSR
-                doTriggerBuild = registerSchemaInGsr(repo_name, fileName)
+            #    doTriggerBuild = registerSchemaInGsr(repo_name, fileName)
 
 
     # Trigger codebuild job to build the repository if needed

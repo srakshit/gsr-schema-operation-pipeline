@@ -1,12 +1,18 @@
 schema:
-  name: customer
-  version: v1
+  file_name: Customer.avsc
 gsr:
   region: <<region>>
   registry:
     name: enterprise_schemas
   schema:
     name: customer
+    data_format: AVRO
+    description: "Customer schema" 
     compatibility_mode: FORWARD
-  topic:
-    - customer
+  meta-tags:
+    topic:
+      - customer
+      - salesforce_customer
+    owner:
+      name: "Subham Rakshit"
+      email: "rakssubh@amazon.co.uk"
