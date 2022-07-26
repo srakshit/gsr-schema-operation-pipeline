@@ -39,6 +39,10 @@ Parameters:
     Type: String
     Description: Avro file path in CodeCommit repo
     Default: src/main/resources/avro/
+  ManifestFilePath:
+    Type: String
+    Description: Manifest filename full path in CodeCommit repo
+    Default: manifest.yml
 Resources:
   CodeCommitRepo:
     Type: AWS::CodeCommit::Repository
@@ -171,6 +175,7 @@ Resources:
         Variables:
           CODE_BUILD_PROJECT: !Ref CodeBuildProject
           AVRO_FILE_PATH: !Ref AvroFilePath
+          MANIFEST_FILE_PATH: !Ref ManifestFilePath
   
   CodeCommitLambdaTriggerRole:
     Type: AWS::IAM::Role

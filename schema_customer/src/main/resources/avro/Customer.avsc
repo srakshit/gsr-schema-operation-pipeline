@@ -1,5 +1,5 @@
 {
- "namespace": "pojo.customer.v2",
+ "namespace": "pojo.customer",
  "type": "record",
  "name": "Customer",
  "fields": [
