@@ -103,7 +103,7 @@ Resources:
         Location: !Sub https://git-codecommit.${AWS::Region}.amazonaws.com/v1/repos/${CodeCommitRepoName}
         BuildSpec: buildspec.yml
         GitCloneDepth: 1
-      SourceVersion: master
+      SourceVersion: refs/heads/master
       TimeoutInMinutes: 10
       LogsConfig: 
         CloudWatchLogs:
