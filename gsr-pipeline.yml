@@ -145,6 +145,31 @@ Resources:
             Version: '2012-10-17'
             Statement:
               - Action:
+                - codeartifact:List*
+                - codeartifact:Describe*
+                - codeartifact:Get*
+                - codeartifact:Read*
+                Effect: Allow
+                Resource: !Sub 'arn:aws:codeartifact:${AWS::Region}:${AWS::AccountId}:repository/${CodeArtifactRepositoryName}/*'
+              - Action:
+                - codeartifact:List*
+                - codeartifact:Describe*
+                Effect: Allow
+                Resource: !Sub 'arn:aws:codeartifact:${AWS::Region}:${AWS::AccountId}:package/*/*/*/*/*'
+              - Action:
+                - sts:GetServiceBearerToken
+                Effect: Allow
+                Resource: '*'
+                Condition:
+                  StringEquals:
+                    sts:AWSServiceName: codeartifact.amazonaws.com
+              - Action:
+                - codeartifact:GetAuthorizationToken
+                - codeartifact:GetRepositoryEndpoint
+                - codeartifact:ReadFromRepository
+                Effect: Allow
+                Resource: '*'
+              - Action:
                 - logs:CreateLogGroup
                 - logs:DescribeLogGroups
                 - logs:CreateLogStream
@@ -239,8 +264,8 @@ Resources:
                   - glue:BatchGetCommits
                 Effect: Allow
                 Resource:
-                  - !Sub 'arn:aws:codecommit:${AWS::Region}:${AWS::AccountId}:registry/*'
-                  - !Sub 'arn:aws:codecommit:${AWS::Region}:${AWS::AccountId}:schema/*'
+                  - !Sub 'arn:aws:glue:${AWS::Region}:${AWS::AccountId}:registry/*'
+                  - !Sub 'arn:aws:glue:${AWS::Region}:${AWS::AccountId}:schema/*'
                 Sid: AWSGlueSchemaRegistryAccess
               - Action:
                   - codebuild:StartBuild

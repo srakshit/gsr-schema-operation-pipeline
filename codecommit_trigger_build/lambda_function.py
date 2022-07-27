@@ -5,7 +5,6 @@ import yaml
 import json
 import re
 from botocore.exceptions import ClientError
-from botocore.exceptions import AlreadyExistsException
 
 # Module level variables initialization
 CODE_BUILD_PROJECT = os.getenv('CODE_BUILD_PROJECT')
@@ -110,8 +109,7 @@ def registerSchemaInGsr(repoName, manifestFilePath, avroSchemaFilePath):
         #Handle malformed schema
         doTriggerBuild = True
     except BaseException as ex:
-        print(ex)
-    except AlreadyExistsException:
+        print(type(ex))
         #Register schema version in GSR
         print("Register new schema version")
         registerResponse = gsr.register_schema_version(
