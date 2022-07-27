@@ -224,8 +224,10 @@ def lambda_handler(event, context):
                 doTriggerBuild = True
             else:
                 #find match for files with avro extension
+                print (schemaFileName)
                 for fa in fileNames_allowed:
                     if re.search(fa, schemaFileName):
+                        print("Schema file changed!")
                         doTriggerBuild = registerSchemaInGsr(repo_name, avroSchemaFilePath)
 
 
@@ -242,7 +244,5 @@ def lambda_handler(event, context):
 
         # build schema
         cb.start_build(**build)
-    else:
-        print('Changed files does not match any triggers. Hence build is suppressed')
     
     return 'Success.'
