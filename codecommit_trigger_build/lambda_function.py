@@ -150,7 +150,6 @@ def isBuildInProgress():
         if lastBuildId is not None:
             lastBuildDetails = cb.batch_get_builds(ids=[lastBuildId])
             print(lastBuildDetails['builds'][0]['buildStatus'])
-            print('I m here')
             if lastBuildDetails['builds'][0]['buildStatus'] == 'IN_PROGRESS':
                 print("Another build is in progress!")
                 return True
@@ -158,6 +157,7 @@ def isBuildInProgress():
     except BaseException as ex:
         print(ex)
 
+    print("No build is in progress!")
     return False
 
 def hasPreviousBuildFailed():
@@ -169,14 +169,15 @@ def hasPreviousBuildFailed():
         if lastBuildId is not None:
             lastBuildDetails = cb.batch_get_builds(ids=[lastBuildId])
             print(lastBuildDetails['builds'][0]['buildStatus'])
-            print('I m here 2')
             if lastBuildDetails['builds'][0]['buildStatus'] == 'SUCCEEDED':
                 print("Previous build was successful!")
                 return False
         
     except BaseException as ex:
         print(ex)
+    
 
+    print("Previous build was not successful!")
     return True
 
 def lambda_handler(event, context):
