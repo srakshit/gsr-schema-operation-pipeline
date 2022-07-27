@@ -83,16 +83,16 @@ Resources:
       RepositoryName: !Ref CodeArtifactRepositoryName
       DomainName: !GetAtt CodeArtifactDomain.Name
 
-  ArtifactsS3Bucket:
-    Type: AWS::S3::Bucket
-    DeletionPolicy: Delete
-    Description: S3 bucket for GSR schema pipeline
-    Properties:
-      BucketName: !Join
-                  - '-'
-                  - - !Ref AWS::StackName
-                    - !Ref AWS::AccountId
-                    - gsr-schema-build
+  # ArtifactsS3Bucket:
+  #   Type: AWS::S3::Bucket
+  #   DeletionPolicy: Delete
+  #   Description: S3 bucket for GSR schema pipeline
+  #   Properties:
+  #     BucketName: !Join
+  #                 - '-'
+  #                 - - !Ref AWS::StackName
+  #                   - !Ref AWS::AccountId
+  #                   - gsr-schema-build
 
   CodeBuildProject:
     Type: AWS::CodeBuild::Project
@@ -101,12 +101,7 @@ Resources:
       Name: !Sub ${AWS::StackName}-gsr-schema-build
       ServiceRole: !GetAtt CodeBuildRole.Arn
       Artifacts:
-        Type: S3
-        Location: !Ref ArtifactsS3Bucket
-        Name: build-output.zip
-        Path: gsr-schema-build-artifacts
-        NamespaceType: BUILD_ID
-        Packaging: ZIP
+        Type: NO_ARTIFACTS
       Cache:
         Location: !Ref S3Bucket
         Type: S3
