@@ -6,9 +6,13 @@ phases:
       java: corretto17
   build:
     commands:
-      - java -version
       - export CODEARTIFACT_AUTH_TOKEN=`aws codeartifact get-authorization-token --region <<region>> --domain <<codeartifact-domain-name>> --domain-owner <<account-id>> --query authorizationToken --output text`
-      - mvn -s settings.xml clean package deploy
+      - git config --global user.email "<<user-email>>"
+      - git config --global user.name "<<user-name>>"
+      - git config --global credential.helper '!aws codecommit credential-helper $@'
+      - git config --global credential.UseHttpPath true
+      - git checkout master
+      - mvn --batch-mode -s settings.xml release:prepare release:perform -Darguments="-Dmaven.javadoc.skip=true"
 artifacts:
   files:
     - target/schema_customer-*.jar

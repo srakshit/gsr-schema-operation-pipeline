@@ -8,6 +8,13 @@
     <artifactId>schema_customer</artifactId>
     <version>1.0-SNAPSHOT</version>
 
+    <scm>
+      <url>scm:ssh://git-codecommit.<<region>>.amazonaws.com/v1/repos/<<codecommit-repo>></url>
+      <connection>scm:ssh://git-codecommit.<<region>>.amazonaws.com/v1/repos/<<codecommit-repo>></connection>
+      <developerConnection>scm:ssh://git-codecommit.<<region>>.amazonaws.com/v1/repos/<<codecommit-repo>></developerConnection>
+      <tag>@{project.version}</tag>
+    </scm>
+
     <distributionManagement>
         <repository>
             <id><<codeartifact-domain-name>>-<<codeartifact-repo-name>></id>
@@ -30,6 +37,18 @@
 
     <build>
         <plugins>
+           <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-release-plugin</artifactId>
+                <version>2.5.3</version>
+                <configuration>
+                    <tagNameFormat>@{project.version}</tagNameFormat>
+                    <checkModificationExcludes>
+                        <checkModificationExclude>pom.xml</checkModificationExclude>
+                    </checkModificationExcludes>
+                    <localCheckout>true</localCheckout>
+                </configuration>
+            </plugin>
             <!-- Maven Compiler Plugin-->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>

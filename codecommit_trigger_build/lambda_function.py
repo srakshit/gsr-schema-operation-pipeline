@@ -131,21 +131,45 @@ def registerSchemaInGsr(repoName, avroSchemaFilePath):
             )
 
     return doTriggerBuild
-
-def hasPreviousBuildFailed():
-
-    try:
-        #Get List of all build ids
-        builds = cb.list_builds_for_project(
+    
+def getLastBuild():
+    builds = cb.list_builds_for_project(
             projectName=CODE_BUILD_PROJECT,
             sortOrder='DESCENDING'
         )
+    if builds['ids']:
+        return builds['ids'][0]
+    return None
+
+def isBuildInProgress():
+    try:
+        #Get last build
+        lastBuildId = getLastBuild()
         
-        #Check if last build was successful
-        if builds['ids']:
-            lastBuildId = builds['ids'][0]
+        #Check if last build is in-progress
+        if lastBuildId is not None:
             lastBuildDetails = cb.batch_get_builds(ids=[lastBuildId])
             print(lastBuildDetails['builds'][0]['buildStatus'])
+            print('I m here')
+            if lastBuildDetails['builds'][0]['buildStatus'] == 'IN_PROGRESS':
+                print("Another build is in progress!")
+                return True
+        
+    except BaseException as ex:
+        print(ex)
+
+    return False
+
+def hasPreviousBuildFailed():
+    try:
+        #Get last build
+        lastBuildId = getLastBuild()
+        
+        #Check if last build is in-progress
+        if lastBuildId is not None:
+            lastBuildDetails = cb.batch_get_builds(ids=[lastBuildId])
+            print(lastBuildDetails['builds'][0]['buildStatus'])
+            print('I m here 2')
             if lastBuildDetails['builds'][0]['buildStatus'] == 'SUCCEEDED':
                 print("Previous build was successful!")
                 return False
@@ -153,8 +177,6 @@ def hasPreviousBuildFailed():
     except BaseException as ex:
         print(ex)
 
-
-    print("Previous build failed!")
     return True
 
 def lambda_handler(event, context):
@@ -195,7 +217,9 @@ def lambda_handler(event, context):
             avroSchemaFilePath = AVRO_FILE_PATH + schemaFileName
 
             # If previous build failed then trigger another build
-            if hasPreviousBuildFailed():
+            if isBuildInProgress():
+                doTriggerBuild = False
+            elif hasPreviousBuildFailed():
                 doTriggerBuild = True
             else:
                 #find match for files with avro extension

@@ -83,17 +83,6 @@ Resources:
       RepositoryName: !Ref CodeArtifactRepositoryName
       DomainName: !GetAtt CodeArtifactDomain.Name
 
-  # ArtifactsS3Bucket:
-  #   Type: AWS::S3::Bucket
-  #   DeletionPolicy: Delete
-  #   Description: S3 bucket for GSR schema pipeline
-  #   Properties:
-  #     BucketName: !Join
-  #                 - '-'
-  #                 - - !Ref AWS::StackName
-  #                   - !Ref AWS::AccountId
-  #                   - gsr-schema-build
-
   CodeBuildProject:
     Type: AWS::CodeBuild::Project
     Properties:
@@ -114,6 +103,7 @@ Resources:
         Location: !Sub https://git-codecommit.${AWS::Region}.amazonaws.com/v1/repos/${CodeCommitRepoName}
         BuildSpec: buildspec.yml
         GitCloneDepth: 1
+      SourceVersion: master
       TimeoutInMinutes: 10
       LogsConfig: 
         CloudWatchLogs:
@@ -131,7 +121,7 @@ Resources:
             Service: [codebuild.amazonaws.com]
         Version: '2012-10-17'
       ManagedPolicyArns:
-        - arn:aws:iam::aws:policy/AWSCodeCommitReadOnly
+        - arn:aws:iam::aws:policy/AWSCodeCommitPowerUser
         - arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess
       Path: /
       Policies:
