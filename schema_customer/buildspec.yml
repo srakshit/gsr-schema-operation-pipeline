@@ -11,4 +11,4 @@ phases:
       - mvn -s settings.xml clean package deploy
 artifacts:
   files:
-    - target/iplib-$STAMP.jar
+    - target/schema_customer-*.jar

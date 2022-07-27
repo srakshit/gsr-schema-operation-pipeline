@@ -78,19 +78,17 @@ def getFile(repository, filePath, branch="master"):
     return content
 
 
-def registerSchemaInGsr(repoName, manifestFilePath, avroSchemaFilePath):
+def registerSchemaInGsr(repoName, avroSchemaFilePath):
     doTriggerBuild = False
     
     #Read manifest.yml file
-    content = getFile(repoName,manifestFilePath)
+    content = getFile(repoName,MANIFEST_FILE_PATH)
     manifest_content = yaml.full_load(content)
-    print(manifest_content)
     
     #Read avroSchema
     avroSchema = getFile(repoName,avroSchemaFilePath)
     avroSchema = json.loads(avroSchema)
     avroSchemaStr = json.dumps(avroSchema)
-    print(avroSchemaStr)
     
     try:
         #Create schema
@@ -109,7 +107,6 @@ def registerSchemaInGsr(repoName, manifestFilePath, avroSchemaFilePath):
         #Handle malformed schema
         doTriggerBuild = True
     except BaseException as ex:
-        print(type(ex))
         #Register schema version in GSR
         print("Register new schema version")
         registerResponse = gsr.register_schema_version(
@@ -134,6 +131,31 @@ def registerSchemaInGsr(repoName, manifestFilePath, avroSchemaFilePath):
             )
 
     return doTriggerBuild
+
+def hasPreviousBuildFailed():
+
+    try:
+        #Get List of all build ids
+        builds = cb.list_builds_for_project(
+            projectName=CODE_BUILD_PROJECT,
+            sortOrder='DESCENDING'
+        )
+        
+        #Check if last build was successful
+        if builds['ids']:
+            lastBuildId = builds['ids'][0]
+            lastBuildDetails = cb.batch_get_builds(ids=[lastBuildId])
+            print(lastBuildDetails['builds'][0]['buildStatus'])
+            if lastBuildDetails['builds'][0]['buildStatus'] == 'SUCCEEDED':
+                print("Previous build was successful!")
+                return False
+        
+    except BaseException as ex:
+        print(ex)
+
+
+    print("Previous build failed!")
+    return True
 
 def lambda_handler(event, context):
 
@@ -166,15 +188,20 @@ def lambda_handler(event, context):
     # Register the schema in GSR
     # and set flag for build triggering
     doTriggerBuild = False
+    
     for diff in differences:
         if 'afterBlob' in diff:
             schemaFileName = os.path.basename(str(diff['afterBlob']['path']))
             avroSchemaFilePath = AVRO_FILE_PATH + schemaFileName
-            
-            #find match for files with avro extension
-            for fa in fileNames_allowed:
-                if re.search(fa, schemaFileName):
-                    doTriggerBuild = registerSchemaInGsr(repo_name, MANIFEST_FILE_PATH, avroSchemaFilePath)
+
+            # If previous build failed then trigger another build
+            if hasPreviousBuildFailed():
+                doTriggerBuild = True
+            else:
+                #find match for files with avro extension
+                for fa in fileNames_allowed:
+                    if re.search(fa, schemaFileName):
+                        doTriggerBuild = registerSchemaInGsr(repo_name, avroSchemaFilePath)
 
 
     # Trigger codebuild job to build the repository if needed

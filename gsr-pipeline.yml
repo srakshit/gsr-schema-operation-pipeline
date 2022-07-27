@@ -275,6 +275,8 @@ Resources:
                 Sid: AWSGlueSchemaRegistryAccess
               - Action:
                   - codebuild:StartBuild
+                  - codebuild:ListBuildsForProject
+                  - codebuild:BatchGetBuilds
                 Effect: Allow
                 Resource:
                   - !GetAtt CodeBuildProject.Arn
