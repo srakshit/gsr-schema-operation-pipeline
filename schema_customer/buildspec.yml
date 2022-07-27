@@ -3,12 +3,12 @@ version: 0.2
 phases:
   install:
     runtime-versions:
-      java: corretto8
+      java: corretto17
   build:
     commands:
       - java -version
       - export CODEARTIFACT_AUTH_TOKEN=`aws codeartifact get-authorization-token --region <<region>> --domain <<codeartifact-domain-name>> --domain-owner <<account-id>> --query authorizationToken --output text`
-      - mvn -s settings.xml clean package deploy
+      - mvn -X -e -s settings.xml clean package deploy
 artifacts:
   files:
     - '**/*'
