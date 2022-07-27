@@ -8,8 +8,7 @@ phases:
     commands:
       - java -version
       - export CODEARTIFACT_AUTH_TOKEN=`aws codeartifact get-authorization-token --region <<region>> --domain <<codeartifact-domain-name>> --domain-owner <<account-id>> --query authorizationToken --output text`
-      - mvn -X -e -s settings.xml clean package deploy
+      - mvn -s settings.xml clean package deploy
 artifacts:
   files:
-    - '**/*'
-  base-directory: 'target'
+    - target/iplib-$STAMP.jar

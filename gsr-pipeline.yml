@@ -144,43 +144,49 @@ Resources:
           PolicyDocument:
             Version: '2012-10-17'
             Statement:
-              - Action:
-                - codeartifact:List*
-                - codeartifact:Describe*
-                - codeartifact:Get*
-                - codeartifact:Read*
-                Effect: Allow
-                Resource: !Sub 'arn:aws:codeartifact:${AWS::Region}:${AWS::AccountId}:repository/${CodeArtifactRepositoryName}/*'
-              - Action:
-                - codeartifact:List*
-                - codeartifact:Describe*
-                Effect: Allow
-                Resource: !Sub 'arn:aws:codeartifact:${AWS::Region}:${AWS::AccountId}:package/*/*/*/*/*'
-              - Action:
-                - sts:GetServiceBearerToken
+              - Sid: BearerTokenPolicy
+                Action:
+                  - sts:GetServiceBearerToken
                 Effect: Allow
                 Resource: '*'
                 Condition:
                   StringEquals:
                     sts:AWSServiceName: codeartifact.amazonaws.com
-              - Action:
-                - codeartifact:GetAuthorizationToken
-                - codeartifact:GetRepositoryEndpoint
-                - codeartifact:ReadFromRepository
+              - Sid: CodeArtifactPolicy
                 Effect: Allow
-                Resource: '*'
-              - Action:
-                - logs:CreateLogGroup
-                - logs:DescribeLogGroups
-                - logs:CreateLogStream
-                - logs:DescribeLogStreams
-                - logs:PutLogEvents
+                Action:
+                  - codeartifact:GetAuthorizationToken
+                Resource:
+                  - !Sub "arn:aws:codeartifact:${AWS::Region}:${AWS::AccountId}:domain/${CodeArtifactDomain.Name}"
+              - Sid: CodeArtifactPackage
+                Action:
+                  - codeartifact:ReadFromRepository
+                  - codeartifact:PublishPackageVersion
+                  - codeartifact:PutPackageMetadata
+                Effect: Allow
+                Resource: 
+                  - !Sub "arn:aws:codeartifact:${AWS::Region}:${AWS::AccountId}:package/${CodeArtifactDomain.Name}/${CodeArtifactRepository.Name}/*"
+              - Sid: CodeArtifactRepository
+                Effect: Allow
+                Action:
+                  - codeartifact:ReadFromRepository
+                  - codeartifact:GetRepositoryEndpoint
+                Resource:
+                  - !Sub "arn:aws:codeartifact:${AWS::Region}:${AWS::AccountId}:repository/${CodeArtifactDomain.Name}/${CodeArtifactRepository.Name}"          
+              - Sid: CloudWatchLogsPolicy
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:DescribeLogGroups
+                  - logs:CreateLogStream
+                  - logs:DescribeLogStreams
+                  - logs:PutLogEvents
                 Effect: Allow
                 Resource: !Sub 'arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:*'
-              - Action:
-                - s3:PutObject
-                - s3:GetObject
-                - s3:GetObjectVersion
+              - Sid: S3GetObjectPolicy
+                Action:
+                  - s3:PutObject
+                  - s3:GetObject
+                  - s3:GetObjectVersion
                 Effect: Allow
                 Resource:
                 - !Join
