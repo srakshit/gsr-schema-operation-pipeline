@@ -33,7 +33,7 @@ Parameters:
   CodeBuildStateSNSTopicName:
     Type: String
     Description: SNS Topic to receive CodeBuild build status
-    Default: gsr_schema_notification
+    Default: gsr-schema-notification
   YourEmail:
     Type: String
     Description: Email to receieve notification
@@ -303,6 +303,9 @@ Resources:
       Role: !GetAtt EventRuleLambdaRole.Arn
       Runtime: python3.9
       Timeout: 60
+      Environment:
+        Variables:
+          SNSTopicArn: !Ref CodeBuildStatusSNSTopic
   
   EventRuleLambdaRole:
     Type: AWS::IAM::Role
@@ -332,6 +335,11 @@ Resources:
                 Resource:
                   - !Sub 'arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/${AWS::StackName}-codebuild-notification-lambda:*'
                 Sid: LogStreamPolicy
+              - Action:
+                  - SNS:Publish
+                Effect: Allow
+                Resource: !Ref CodeBuildStatusSNSTopic
+                Sid: SNSTopicAccess
             Version: '2012-10-17'
           PolicyName: !Sub ${AWS::StackName}-codebuild-notification-lambda
       RoleName: !Sub ${AWS::StackName}-codebuild-notification-lambda-role
@@ -369,13 +377,13 @@ Resources:
                   "repository": "<repository>"
                 }
 
-  PermissionForEventsToInvokeLambda: 
+  PermissionForEventRuleToInvokeLambda: 
     Type: AWS::Lambda::Permission
     Properties: 
-      FunctionName: !Ref EventRuleLambda
+      FunctionName: !GetAtt EventRuleLambda.Arn
       Action: lambda:InvokeFunction
       Principal: events.amazonaws.com
-      SourceArn: !GetAtt EventRuleLambda.Arn
+      SourceArn: !GetAtt CodeBuildStatusNotificationEventRule.Arn
 
   EventTopicPolicy:
     Type: 'AWS::SNS::TopicPolicy'
@@ -409,3 +417,21 @@ Outputs:
   ArtifactName:
     Description: CodeArtifact repo
     Value: !GetAtt CodeArtifactRepository.Name
+  SNSTopic:
+    Description: SNS Topic
+    Value: !GetAtt CodeBuildStatusSNSTopic.TopicName
+  CodeBuildStatusEventRule:
+    Description: CodeBuild status event rule
+    Value: !GetAtt CodeBuildStatusNotificationEventRule.Arn
+  EventRuleTargetLambda:
+    Description: Lambda triggered by event rule
+    Value: !GetAtt EventRuleLambda.Arn
+  CodeCommitTargetLambda:
+    Description: Lambda triggered by codecommit git push
+    Value: !GetAtt CodeCommitLambdaTrigger.Arn
+  CodeBuildProjectArn:
+    Description: CodeBuild project
+    Value: !GetAtt CodeBuildProject.Arn
+  GSRName:
+    Description: CodeBuild project
+    Value: !GetAtt GlueSchemaRegistry

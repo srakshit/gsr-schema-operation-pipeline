@@ -219,9 +219,9 @@ def lambda_handler(event, context):
 
             # If previous build failed then trigger another build
             if isBuildInProgress():
-                doTriggerBuild = False
+                doTriggerBuild = registerSchemaInGsr(repo_name, avroSchemaFilePath)
             elif hasPreviousBuildFailed():
-                doTriggerBuild = True
+                doTriggerBuild = registerSchemaInGsr(repo_name, avroSchemaFilePath)
             else:
                 #find match for files with avro extension
                 print (schemaFileName)
