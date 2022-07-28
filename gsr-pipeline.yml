@@ -26,6 +26,10 @@ Parameters:
     Type: String
     Description: Key of lambda zipped code that would be triggered by CodeCommit events
     Default: codecommit-trigger/codecommit_lambda.zip
+  EventRuleLambdaCodeKey:
+    Type: String
+    Description: Key of lambda zipped code that would be triggered by CodeCommit events
+    Default: codebuild-notification/eventrule_lambda.zip
   CodeBuildStateSNSTopicName:
     Type: String
     Description: SNS Topic to receive CodeBuild build status
@@ -182,7 +186,15 @@ Resources:
                   - ''
                   - - 'arn:aws:s3:::'
                     - !Ref 'S3Bucket'
-                    - /*
+                    - /*          
+              - Sid: CloudwatchEventsPolicy
+                Action:
+                  - iam:PassRole
+                Effect: Allow
+                Resource: !Sub 'arn:aws:iam::${AWS::AccountId}:role/${AWS::StackName}-CodeBuildRole-*'
+                Condition:
+                  StringEquals:
+                    iam:PassedToService: events.amazonaws.com
   
   CodeCommitLambdaTrigger:
     Type: AWS::Lambda::Function
@@ -192,7 +204,7 @@ Resources:
         S3Bucket: !Ref S3Bucket
         S3Key: !Ref CodeCommitTriggerLambdaCodeKey
       Description: Lambda function that will recieve CodeCommit events and will trigger CodeBuild docker image build job.
-      FunctionName: !Sub ${CodeBuildProject}-Lambda-Trigger
+      FunctionName: !Sub ${CodeBuildProject}-lambda-trigger
       Handler: lambda_function.lambda_handler
       MemorySize: 512
       Role: !GetAtt CodeCommitLambdaTriggerRole.Arn
@@ -267,8 +279,8 @@ Resources:
                   - !GetAtt CodeBuildProject.Arn
                 Sid: CodeBuildStartPolicy
             Version: '2012-10-17'
-          PolicyName: !Sub ${AWS::StackName}-CodeCommit-Lambda-Trigger
-      RoleName: !Sub ${AWS::StackName}-CodeCommit-Lambda-Trigger-Role
+          PolicyName: !Sub ${AWS::StackName}-codecommit-lambda-trigger
+      RoleName: !Sub ${AWS::StackName}-codecommit-lambda-trigger-role
   
   PermissionForCodeCommitToInvokeLambda:
     Type: AWS::Lambda::Permission
@@ -276,6 +288,53 @@ Resources:
       Action: lambda:InvokeFunction
       FunctionName: !Ref CodeCommitLambdaTrigger
       Principal: codecommit.amazonaws.com
+  
+  EventRuleLambda:
+    Type: AWS::Lambda::Function
+    DependsOn: EventRuleLambdaRole
+    Properties:
+      Code:
+        S3Bucket: !Ref S3Bucket
+        S3Key: !Ref EventRuleLambdaCodeKey
+      Description: Lambda function that will be invoked by EventRule on receiving build notification
+      FunctionName: !Sub ${AWS::StackName}-codebuild-notification-lambda
+      Handler: lambda_function.lambda_handler
+      MemorySize: 128
+      Role: !GetAtt EventRuleLambdaRole.Arn
+      Runtime: python3.9
+      Timeout: 60
+  
+  EventRuleLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+        Version: '2012-10-17'
+      Path: /
+      Policies:
+        - PolicyDocument:
+            Statement:
+              - Action:
+                  - logs:CreateLogGroup
+                Effect: Allow
+                Resource:
+                  - !Sub 'arn:aws:logs:${AWS::Region}:${AWS::AccountId}:*'
+                Sid: LogGroupCreationPolicy
+              - Action:
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Effect: Allow
+                Resource:
+                  - !Sub 'arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/${AWS::StackName}-codebuild-notification-lambda:*'
+                Sid: LogStreamPolicy
+            Version: '2012-10-17'
+          PolicyName: !Sub ${AWS::StackName}-codebuild-notification-lambda
+      RoleName: !Sub ${AWS::StackName}-codebuild-notification-lambda-role
 
   CodeBuildStatusNotificationEventRule: 
     Type: AWS::Events::Rule
@@ -289,11 +348,13 @@ Resources:
         detail: 
           build-status: 
             - SUCCEEDED
+            - FAILED
+            - STOPPED
       State: ENABLED
       Targets: 
         - 
-          Arn: !Ref CodeBuildStatusSNSTopic
-          Id: CodeBuildStateChangeNotification
+          Arn: !GetAtt EventRuleLambda.Arn
+          Id: ProcessBuildStatusNotification
           InputTransformer:
             InputPathsMap:
               "build-id" : "$.detail.build-id"
@@ -307,6 +368,14 @@ Resources:
                   "build-status": "<build-status>",
                   "repository": "<repository>"
                 }
+
+  PermissionForEventsToInvokeLambda: 
+    Type: AWS::Lambda::Permission
+    Properties: 
+      FunctionName: !Ref EventRuleLambda
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt EventRuleLambda.Arn
 
   EventTopicPolicy:
     Type: 'AWS::SNS::TopicPolicy'
