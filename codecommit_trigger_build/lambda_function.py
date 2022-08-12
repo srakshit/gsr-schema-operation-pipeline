@@ -10,6 +10,7 @@ from botocore.exceptions import ClientError
 CODE_BUILD_PROJECT = os.getenv('CODE_BUILD_PROJECT')
 AVRO_FILE_PATH = os.getenv('AVRO_FILE_PATH')
 MANIFEST_FILE_PATH = os.getenv('MANIFEST_FILE_PATH')
+FILE_NAMES_ALLOWED = ["^.*\.(avsc)$"]
 
 codecommit = boto3.client('codecommit')
 cb = boto3.client('codebuild')
@@ -59,7 +60,7 @@ def getFileDifferences(repository_name, lastCommitID, previousCommitID):
     return differences
 
 
-def getLastCommitID(repository, branch="master"):
+def getLastCommitId(repository, branch="master"):
     response = codecommit.get_branch(
         repositoryName=repository,
         branchName=branch
@@ -106,7 +107,7 @@ def registerSchemaInGsr(repoName, avroSchemaFilePath):
         
         #Handle malformed schema
         doTriggerBuild = True
-    except BaseException as ex:
+    except gsr.exceptions.AlreadyExistsException as ex:
         #Register schema version in GSR
         print("Register new schema version")
         registerResponse = gsr.register_schema_version(
@@ -129,6 +130,8 @@ def registerSchemaInGsr(repoName, avroSchemaFilePath):
                 },
                 Versions=str(registerResponse['VersionNumber'])
             )
+    except BaseException as ex:
+        print(ex)
 
     return doTriggerBuild
     
@@ -141,70 +144,77 @@ def getLastBuild():
         return builds['ids'][0]
     return None
 
-def isBuildNotInProgress():
+def getSchemaFilePath(repoName, lastCommit):
     try:
-        #Get last build
-        lastBuildId = getLastBuild()
-        
-        #Check if last build is in-progress
-        if lastBuildId is not None:
-            lastBuildDetails = cb.batch_get_builds(ids=[lastBuildId])
-            print(lastBuildDetails['builds'][0]['buildStatus'])
-            if lastBuildDetails['builds'][0]['buildStatus'] == 'IN_PROGRESS':
-                print("Another build is in progress!")
-                return False
-        
+        firstCommitId = lastCommit['commitId']
+
+        # Get first commit
+        if len(lastCommit['parents']) > 0:
+            firstCommitId = lastCommit['parents'][-1]
+
+        print('First Commit ID: ' + firstCommitId)
+
+        # Get files from first commit
+        differences = getFileDifferences(repoName, firstCommitId, None)
+
+        # Match filename with AVRO extension
+        for diff in differences:
+            if 'afterBlob' in diff:
+                schemaFileName = os.path.basename(str(diff['afterBlob']['path']))
+                avroSchemaFilePath = AVRO_FILE_PATH + schemaFileName
+                
+                for fa in FILE_NAMES_ALLOWED:
+                    if re.search(fa, schemaFileName):
+                        # Return when an avro file found
+                        return avroSchemaFilePath
+    
     except BaseException as ex:
         print(ex)
 
-    print("No build is in progress!")
-    return True
+    return None
 
-def hasPreviousBuildFailed():
+def hasPreviousBuildFailedAndNoBuildInProgress():
     try:
         #Get last build
         lastBuildId = getLastBuild()
         
-        #Check if last build is in-progress
+        #Check if last build failed
         if lastBuildId is not None:
             lastBuildDetails = cb.batch_get_builds(ids=[lastBuildId])
             print(lastBuildDetails['builds'][0]['buildStatus'])
-            if lastBuildDetails['builds'][0]['buildStatus'] == 'SUCCEEDED':
-                print("Previous build was successful!")
+            if lastBuildDetails['builds'][0]['buildStatus'] in ['SUCCEEDED','IN_PROGRESS']:
+                print("Either previous build was successful or a build is in progress!")
                 return False
         
     except BaseException as ex:
         print(ex)
     
-
-    print("Previous build was not successful!")
     return True
 
 def lambda_handler(event, context):
 
     # Initialize needed variables
-    fileNames_allowed = ["^.*\.(avsc)$"]
-    commit_hash = event['Records'][0]['codecommit']['references'][0]['commit']
+    print(event['Records'][0]['codecommit']['references'])
+    commitHash = event['Records'][0]['codecommit']['references'][0]['commit']
     region = event['Records'][0]['awsRegion']
-    repo_name = event['Records'][0]['eventSourceARN'].split(':')[-1]
+    repoName = event['Records'][0]['eventSourceARN'].split(':')[-1]
     account_id = event['Records'][0]['eventSourceARN'].split(':')[4]
     branchName = os.path.basename(
         str(event['Records'][0]['codecommit']['references'][0]['ref']))
 
     # Get commit ID for fetching the commit log
-    if (commit_hash == None) or (commit_hash == '0000000000000000000000000000000000000000'):
-        commit_hash = getLastCommitID(repo_name, branchName)
+    if (commitHash == None) or (commitHash == '0000000000000000000000000000000000000000'):
+        commitHash = getLastCommitId(repoName, branchName)
 
-    lastCommit = getLastCommitLog(repo_name, commit_hash)
-
-    previousCommitID = None
+    lastCommit = getLastCommitLog(repoName, commitHash)
+    print(lastCommit['parents'])
+    previousCommitId = None
     if len(lastCommit['parents']) > 0:
-        previousCommitID = lastCommit['parents'][0]
+        previousCommitId = lastCommit['parents'][0]
 
-    print('lastCommitID: {0} previousCommitID: {1}'.format(
-        commit_hash, previousCommitID))
+    print('lastCommitID: {0} previousCommitID: {1}'.format(commitHash, previousCommitId))
 
-    differences = getFileDifferences(repo_name, commit_hash, previousCommitID)
+    differences = getFileDifferences(repoName, commitHash, previousCommitId)
 
 
     # Check whether any avro file is added/modified
@@ -217,31 +227,29 @@ def lambda_handler(event, context):
             schemaFileName = os.path.basename(str(diff['afterBlob']['path']))
             avroSchemaFilePath = AVRO_FILE_PATH + schemaFileName
 
-            if isBuildNotInProgress():
-                # Don't trigger build if another build is in progress
-                doTriggerBuild = True
-            elif hasPreviousBuildFailed():
-                # If previous build failed then trigger another build
-                doTriggerBuild = True
+            if hasPreviousBuildFailedAndNoBuildInProgress():
+                # Trigger build if no build is in progress and previous build failed
+                avroSchemaFilePath = getSchemaFilePath(repoName, lastCommit)
+                doTriggerBuild = registerSchemaInGsr(repoName, avroSchemaFilePath)
             else:
-                #find match for files with avro extension
-                print (schemaFileName)
-                for fa in fileNames_allowed:
+                # Find match for files with avro extension
+                for fa in FILE_NAMES_ALLOWED:
+                    print(schemaFileName)
                     if re.search(fa, schemaFileName):
                         print("Schema file changed!")
-                        doTriggerBuild = registerSchemaInGsr(repo_name, avroSchemaFilePath)
+                        doTriggerBuild = registerSchemaInGsr(repoName, avroSchemaFilePath)
 
 
     # Trigger codebuild job to build the repository if needed
     if doTriggerBuild:
         build = {
             'projectName': CODE_BUILD_PROJECT,
-            'sourceVersion': commit_hash,
+            'sourceVersion': commitHash,
             'sourceTypeOverride': 'CODECOMMIT',
-            'sourceLocationOverride': 'https://git-codecommit.%s.amazonaws.com/v1/repos/%s' % (region, repo_name)
+            'sourceLocationOverride': 'https://git-codecommit.%s.amazonaws.com/v1/repos/%s' % (region, repoName)
         }
 
-        print("Building schema from repo %s in region %s" % (repo_name, region))
+        print("Building schema from repo %s in region %s" % (repoName, region))
 
         # build schema
         cb.start_build(**build)
