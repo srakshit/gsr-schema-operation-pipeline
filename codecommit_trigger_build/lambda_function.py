@@ -152,8 +152,6 @@ def getSchemaFilePath(repoName, lastCommit):
         if len(lastCommit['parents']) > 0:
             firstCommitId = lastCommit['parents'][-1]
 
-        print('First Commit ID: ' + firstCommitId)
-
         # Get files from first commit
         differences = getFileDifferences(repoName, firstCommitId, None)
 
@@ -194,7 +192,6 @@ def hasPreviousBuildFailedAndNoBuildInProgress():
 def lambda_handler(event, context):
 
     # Initialize needed variables
-    print(event['Records'][0]['codecommit']['references'])
     commitHash = event['Records'][0]['codecommit']['references'][0]['commit']
     region = event['Records'][0]['awsRegion']
     repoName = event['Records'][0]['eventSourceARN'].split(':')[-1]
@@ -207,7 +204,7 @@ def lambda_handler(event, context):
         commitHash = getLastCommitId(repoName, branchName)
 
     lastCommit = getLastCommitLog(repoName, commitHash)
-    print(lastCommit['parents'])
+
     previousCommitId = None
     if len(lastCommit['parents']) > 0:
         previousCommitId = lastCommit['parents'][0]
@@ -221,22 +218,20 @@ def lambda_handler(event, context):
     # Register the schema in GSR
     # and set flag for build triggering
     doTriggerBuild = False
-    
-    for diff in differences:
-        if 'afterBlob' in diff:
-            schemaFileName = os.path.basename(str(diff['afterBlob']['path']))
-            avroSchemaFilePath = AVRO_FILE_PATH + schemaFileName
 
-            if hasPreviousBuildFailedAndNoBuildInProgress():
-                # Trigger build if no build is in progress and previous build failed
-                avroSchemaFilePath = getSchemaFilePath(repoName, lastCommit)
-                doTriggerBuild = registerSchemaInGsr(repoName, avroSchemaFilePath)
-            else:
+    if hasPreviousBuildFailedAndNoBuildInProgress():
+        # Trigger build if no build is in progress and previous build failed
+        avroSchemaFilePath = getSchemaFilePath(repoName, lastCommit)
+        doTriggerBuild = registerSchemaInGsr(repoName, avroSchemaFilePath)
+    else:
+        for diff in differences:
+            if 'afterBlob' in diff:
+                schemaFileName = os.path.basename(str(diff['afterBlob']['path']))
+                avroSchemaFilePath = AVRO_FILE_PATH + schemaFileName
                 # Find match for files with avro extension
                 for fa in FILE_NAMES_ALLOWED:
-                    print(schemaFileName)
                     if re.search(fa, schemaFileName):
-                        print("Schema file changed!")
+                        print("Schema file %s changed!" % (schemaFileName))
                         doTriggerBuild = registerSchemaInGsr(repoName, avroSchemaFilePath)
 
 
@@ -254,4 +249,4 @@ def lambda_handler(event, context):
         # build schema
         cb.start_build(**build)
     
-    return 'Success.'
+    return 'Success'
