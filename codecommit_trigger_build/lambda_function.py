@@ -141,7 +141,7 @@ def getLastBuild():
         return builds['ids'][0]
     return None
 
-def isBuildInProgress():
+def isBuildNotInProgress():
     try:
         #Get last build
         lastBuildId = getLastBuild()
@@ -152,13 +152,13 @@ def isBuildInProgress():
             print(lastBuildDetails['builds'][0]['buildStatus'])
             if lastBuildDetails['builds'][0]['buildStatus'] == 'IN_PROGRESS':
                 print("Another build is in progress!")
-                return True
+                return False
         
     except BaseException as ex:
         print(ex)
 
     print("No build is in progress!")
-    return False
+    return True
 
 def hasPreviousBuildFailed():
     try:
@@ -217,11 +217,12 @@ def lambda_handler(event, context):
             schemaFileName = os.path.basename(str(diff['afterBlob']['path']))
             avroSchemaFilePath = AVRO_FILE_PATH + schemaFileName
 
-            # If previous build failed then trigger another build
-            if isBuildInProgress():
-                doTriggerBuild = registerSchemaInGsr(repo_name, avroSchemaFilePath)
+            if isBuildNotInProgress():
+                # Don't trigger build if another build is in progress
+                doTriggerBuild = True
             elif hasPreviousBuildFailed():
-                doTriggerBuild = registerSchemaInGsr(repo_name, avroSchemaFilePath)
+                # If previous build failed then trigger another build
+                doTriggerBuild = True
             else:
                 #find match for files with avro extension
                 print (schemaFileName)

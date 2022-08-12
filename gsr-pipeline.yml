@@ -434,4 +434,4 @@ Outputs:
     Value: !GetAtt CodeBuildProject.Arn
   GSRName:
     Description: CodeBuild project
-    Value: !GetAtt GlueSchemaRegistry
+    Value: !GetAtt GlueSchemaRegistry.Arn
