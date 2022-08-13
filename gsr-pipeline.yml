@@ -306,6 +306,8 @@ Resources:
       Environment:
         Variables:
           SNSTopicArn: !Ref CodeBuildStatusSNSTopic
+          CODE_BUILD_PROJECT: !Ref CodeBuildProject
+          MANIFEST_FILE_PATH: !Ref ManifestFilePath
   
   EventRuleLambdaRole:
     Type: AWS::IAM::Role
@@ -340,6 +342,20 @@ Resources:
                 Effect: Allow
                 Resource: !Ref CodeBuildStatusSNSTopic
                 Sid: SNSTopicAccess
+              - Action:
+                  - codecommit:GetDifferences
+                  - codecommit:GetCommit
+                  - codecommit:GetFile
+                  - codebuild:BatchGetBuilds
+                  - glue:ListSchemaVersions
+                  - glue:DeleteSchemaVersions
+                Effect: Allow
+                Resource: 
+                  - !Sub 'arn:aws:codecommit:${AWS::Region}:${AWS::AccountId}:${CodeCommitRepoName}'
+                  - !Sub 'arn:aws:codecommit:${AWS::Region}:${AWS::AccountId}:schema/*'
+                  - !Sub 'arn:aws:codecommit:${AWS::Region}:${AWS::AccountId}:registry/${GlueSchemaRegistryName}'
+                  - !GetAtt CodeBuildProject.Arn
+                Sid: AccesstoDeleteSchemaVersion
             Version: '2012-10-17'
           PolicyName: !Sub ${AWS::StackName}-codebuild-notification-lambda
       RoleName: !Sub ${AWS::StackName}-codebuild-notification-lambda-role

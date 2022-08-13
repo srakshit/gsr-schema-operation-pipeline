@@ -1,5 +1,6 @@
 from fileinput import filename
 import os
+from urllib import response
 import boto3
 import yaml
 import json
@@ -25,20 +26,20 @@ def getLastCommitLog(repository, commitId):
     return response['commit']
 
 
-def getFileDifferences(repository_name, lastCommitID, previousCommitID):
+def getFileDifferences(repository_name, lastCommitId, previousCommitId):
     response = None
 
-    if previousCommitID != None:
+    if previousCommitId != None:
         response = codecommit.get_differences(
             repositoryName=repository_name,
-            beforeCommitSpecifier=previousCommitID,
-            afterCommitSpecifier=lastCommitID
+            beforeCommitSpecifier=previousCommitId,
+            afterCommitSpecifier=lastCommitId
         )
     else:
         # The case of getting initial commit (Without beforeCommitSpecifier)
         response = codecommit.get_differences(
             repositoryName=repository_name,
-            afterCommitSpecifier=lastCommitID
+            afterCommitSpecifier=lastCommitId
         )
 
     differences = []
@@ -49,8 +50,8 @@ def getFileDifferences(repository_name, lastCommitID, previousCommitID):
     while "nextToken" in response:
         response = codecommit.get_differences(
             repositoryName=repository_name,
-            beforeCommitSpecifier=previousCommitID,
-            afterCommitSpecifier=lastCommitID,
+            beforeCommitSpecifier=previousCommitId,
+            afterCommitSpecifier=lastCommitId,
             nextToken=response["nextToken"]
         )
         differences += response.get("differences", [])
@@ -79,57 +80,88 @@ def getFile(repository, filePath, branch="master"):
     return content
 
 
+def createSchema(registryName, schemaName, dataFormat, compatibility, description, schemaDefinition):
+    response = gsr.create_schema(
+            RegistryId={
+                'RegistryName': registryName
+            },
+            SchemaName=schemaName,
+            DataFormat=dataFormat,
+            Compatibility=compatibility,
+            Description=description,
+            SchemaDefinition=schemaDefinition
+        )
+    return response
+
+
+def registerSchemaVersion(registryName, schemaName, schemaDefinition):
+    response = gsr.register_schema_version(
+            SchemaId={
+                'SchemaName': schemaName,
+                'RegistryName': registryName
+            },
+            SchemaDefinition=schemaDefinition
+        )
+    return response
+
+
+def deleteSchemaVersion(registryName, schemaName, versions):
+    response = gsr.delete_schema_versions(
+            SchemaId={
+                'SchemaName': schemaName,
+                'RegistryName': registryName
+            },
+            Versions=str(versions)
+        )
+    return response
+
+
 def registerSchemaInGsr(repoName, avroSchemaFilePath):
     doTriggerBuild = False
     
     #Read manifest.yml file
     content = getFile(repoName,MANIFEST_FILE_PATH)
     manifest_content = yaml.full_load(content)
+    print(manifest_content)
     
     #Read avroSchema
     avroSchema = getFile(repoName,avroSchemaFilePath)
     avroSchema = json.loads(avroSchema)
     avroSchemaStr = json.dumps(avroSchema)
+
+    registryName = manifest_content['gsr']['registry']['name']
+    schemaName=manifest_content['gsr']['schema']['name']
+    dataFormat=manifest_content['gsr']['schema']['data_format']
+    compatibility=manifest_content['gsr']['schema']['compatibility_mode']
+    description=manifest_content['gsr']['schema']['description']
+    schemaDefinition=avroSchemaStr
+
+    metaTags = manifest_content['gsr']['meta_tags']
+    tags = {}
+    for key in metaTags.keys():
+        if metaTags[key]
+        tags[key] = metaTags[key]
     
     try:
-        #Create schema
-        response = gsr.create_schema(
-            RegistryId={
-                'RegistryName': manifest_content['gsr']['registry']['name']
-            },
-            SchemaName=manifest_content['gsr']['schema']['name'],
-            DataFormat=manifest_content['gsr']['schema']['data_format'],
-            Compatibility=manifest_content['gsr']['schema']['compatibility_mode'],
-            Description=manifest_content['gsr']['schema']['description'],
-            SchemaDefinition=avroSchemaStr
-        )
+        #Create schema first time
+        createSchema(registryName, schemaName, dataFormat, compatibility, description, schemaDefinition)
         print("Created new schema - " + manifest_content['gsr']['schema']['name'])
         
         #Handle malformed schema
         doTriggerBuild = True
     except gsr.exceptions.AlreadyExistsException as ex:
-        #Register schema version in GSR
+        #If schema already exists register a new schema version in GSR
         print("Register new schema version")
-        registerResponse = gsr.register_schema_version(
-            SchemaId={
-                'SchemaName': manifest_content['gsr']['schema']['name'],
-                'RegistryName': manifest_content['gsr']['registry']['name']
-            },
-            SchemaDefinition=avroSchemaStr
-        )
+        
+        registerResponse = registerSchemaVersion(registryName, schemaName, schemaDefinition)
 
         if registerResponse['Status'] == "AVAILABLE":
             doTriggerBuild = True
         else:
             #If failed to register schema version, delete the version
             print("Delete schema version as the version registration failed")
-            delResponse = gsr.delete_schema_versions(
-                SchemaId={
-                    'SchemaName': manifest_content['gsr']['schema']['name'],
-                    'RegistryName': manifest_content['gsr']['registry']['name']
-                },
-                Versions=str(registerResponse['VersionNumber'])
-            )
+            delResponse = deleteSchemaVersion(registryName, schemaName, registerResponse['VersionNumber'])
+
     except BaseException as ex:
         print(ex)
 
@@ -189,16 +221,24 @@ def hasPreviousBuildFailedAndNoBuildInProgress():
     
     return True
 
-def lambda_handler(event, context):
 
-    # Initialize needed variables
-    commitHash = event['Records'][0]['codecommit']['references'][0]['commit']
-    region = event['Records'][0]['awsRegion']
-    repoName = event['Records'][0]['eventSourceARN'].split(':')[-1]
-    account_id = event['Records'][0]['eventSourceARN'].split(':')[4]
-    branchName = os.path.basename(
-        str(event['Records'][0]['codecommit']['references'][0]['ref']))
+def triggerCodeBuild(sourceVersion, region, repoName):
+    build = {
+        'projectName': CODE_BUILD_PROJECT,
+        'sourceVersion': commitHash,
+        'sourceTypeOverride': 'CODECOMMIT',
+        'sourceLocationOverride': 'https://git-codecommit.%s.amazonaws.com/v1/repos/%s' % (region, repoName)
+    }
 
+    print("Building schema from repo %s in region %s" % (repoName, region))
+
+    # build schema
+    cb.start_build(**build)
+
+    return
+
+
+def getCommitDifferences(repoName, commitHash, branchName):
     # Get commit ID for fetching the commit log
     if (commitHash == None) or (commitHash == '0000000000000000000000000000000000000000'):
         commitHash = getLastCommitId(repoName, branchName)
@@ -209,22 +249,36 @@ def lambda_handler(event, context):
     if len(lastCommit['parents']) > 0:
         previousCommitId = lastCommit['parents'][0]
 
-    print('lastCommitID: {0} previousCommitID: {1}'.format(commitHash, previousCommitId))
+    print('lastCommitId: {0} previousCommitId: {1}'.format(commitHash, previousCommitId))
 
     differences = getFileDifferences(repoName, commitHash, previousCommitId)
 
+    return {
+        "differences" : differences, 
+        "lastCommit": lastCommit
+    } 
 
-    # Check whether any avro file is added/modified
-    # Register the schema in GSR
+
+def lambda_handler(event, context):
+
+    # Initialize needed variables
+    commitHash = event['Records'][0]['codecommit']['references'][0]['commit']
+    region = event['Records'][0]['awsRegion']
+    repoName = event['Records'][0]['eventSourceARN'].split(':')[-1]
+    branchName = os.path.basename(str(event['Records'][0]['codecommit']['references'][0]['ref']))
+
+    # Get differences between current and previous build.
+    response = getCommitDifferences(repoName, commitHash, branchName)
+
     # and set flag for build triggering
     doTriggerBuild = False
 
     if hasPreviousBuildFailedAndNoBuildInProgress():
         # Trigger build if no build is in progress and previous build failed
-        avroSchemaFilePath = getSchemaFilePath(repoName, lastCommit)
+        avroSchemaFilePath = getSchemaFilePath(repoName, response['lastCommit'])
         doTriggerBuild = registerSchemaInGsr(repoName, avroSchemaFilePath)
     else:
-        for diff in differences:
+        for diff in response['differences']:
             if 'afterBlob' in diff:
                 schemaFileName = os.path.basename(str(diff['afterBlob']['path']))
                 avroSchemaFilePath = AVRO_FILE_PATH + schemaFileName
@@ -237,16 +291,6 @@ def lambda_handler(event, context):
 
     # Trigger codebuild job to build the repository if needed
     if doTriggerBuild:
-        build = {
-            'projectName': CODE_BUILD_PROJECT,
-            'sourceVersion': commitHash,
-            'sourceTypeOverride': 'CODECOMMIT',
-            'sourceLocationOverride': 'https://git-codecommit.%s.amazonaws.com/v1/repos/%s' % (region, repoName)
-        }
+        triggerCodeBuild(commitHash, region, repoName)
 
-        print("Building schema from repo %s in region %s" % (repoName, region))
-
-        # build schema
-        cb.start_build(**build)
-    
     return 'Success'
