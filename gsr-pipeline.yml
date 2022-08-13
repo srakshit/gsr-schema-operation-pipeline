@@ -347,15 +347,20 @@ Resources:
                   - codecommit:GetCommit
                   - codecommit:GetFile
                   - codebuild:BatchGetBuilds
-                  - glue:ListSchemaVersions
-                  - glue:DeleteSchemaVersions
                 Effect: Allow
                 Resource: 
                   - !Sub 'arn:aws:codecommit:${AWS::Region}:${AWS::AccountId}:${CodeCommitRepoName}'
                   - !Sub 'arn:aws:codecommit:${AWS::Region}:${AWS::AccountId}:schema/*'
                   - !Sub 'arn:aws:codecommit:${AWS::Region}:${AWS::AccountId}:registry/${GlueSchemaRegistryName}'
                   - !GetAtt CodeBuildProject.Arn
-                Sid: AccesstoDeleteSchemaVersion
+                Sid: CodeBuildCodeCommitAccess
+              - Action:
+                  - glue:ListSchemaVersions
+                  - glue:DeleteSchemaVersions
+                  - glue:DeleteSchema
+                Effect: Allow
+                Resource: '*'
+                Sid: GlueAccess
             Version: '2012-10-17'
           PolicyName: !Sub ${AWS::StackName}-codebuild-notification-lambda
       RoleName: !Sub ${AWS::StackName}-codebuild-notification-lambda-role

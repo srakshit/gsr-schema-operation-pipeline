@@ -80,7 +80,7 @@ def getFile(repository, filePath, branch="master"):
     return content
 
 
-def createSchema(registryName, schemaName, dataFormat, compatibility, description, schemaDefinition):
+def createSchema(registryName, schemaName, dataFormat, compatibility, description, schemaDefinition, tags):
     response = gsr.create_schema(
             RegistryId={
                 'RegistryName': registryName
@@ -122,29 +122,35 @@ def registerSchemaInGsr(repoName, avroSchemaFilePath):
     #Read manifest.yml file
     content = getFile(repoName,MANIFEST_FILE_PATH)
     manifest_content = yaml.full_load(content)
-    print(manifest_content)
     
     #Read avroSchema
     avroSchema = getFile(repoName,avroSchemaFilePath)
     avroSchema = json.loads(avroSchema)
-    avroSchemaStr = json.dumps(avroSchema)
+    schemaDefinition = json.dumps(avroSchema)
 
     registryName = manifest_content['gsr']['registry']['name']
     schemaName=manifest_content['gsr']['schema']['name']
     dataFormat=manifest_content['gsr']['schema']['data_format']
     compatibility=manifest_content['gsr']['schema']['compatibility_mode']
     description=manifest_content['gsr']['schema']['description']
-    schemaDefinition=avroSchemaStr
 
     metaTags = manifest_content['gsr']['meta_tags']
     tags = {}
     for key in metaTags.keys():
-        if metaTags[key]
-        tags[key] = metaTags[key]
+        if isinstance(metaTags[key], list):
+            tags[key] = ",".join(metaTags[key])
+        elif isinstance(metaTags[key], dict):
+            for k in metaTags[key].keys():
+                tags[key+"_"+k] = metaTags[key][k]
+        else:
+            tags[key] = metaTags[key]
+
+    print(tags)
+    print(isinstance(metaTags[key], dict))
     
     try:
         #Create schema first time
-        createSchema(registryName, schemaName, dataFormat, compatibility, description, schemaDefinition)
+        createSchema(registryName, schemaName, dataFormat, compatibility, description, schemaDefinition, tags)
         print("Created new schema - " + manifest_content['gsr']['schema']['name'])
         
         #Handle malformed schema
@@ -225,7 +231,7 @@ def hasPreviousBuildFailedAndNoBuildInProgress():
 def triggerCodeBuild(sourceVersion, region, repoName):
     build = {
         'projectName': CODE_BUILD_PROJECT,
-        'sourceVersion': commitHash,
+        'sourceVersion': sourceVersion,
         'sourceTypeOverride': 'CODECOMMIT',
         'sourceLocationOverride': 'https://git-codecommit.%s.amazonaws.com/v1/repos/%s' % (region, repoName)
     }

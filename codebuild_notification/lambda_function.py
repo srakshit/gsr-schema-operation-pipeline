@@ -103,6 +103,16 @@ def deleteSchemaVersion(schemaName, registryName, versionNumber):
     return response
 
 
+def deleteSchema(schemaName, registryName):
+    response = gsr.delete_schema(
+            SchemaId={
+                'SchemaName': schemaName,
+                'RegistryName': registryName
+            }
+        )
+    return response
+
+
 def sendMsgToSns(schemaName):
     schemaName = schemaName.replace("schema-", "")
 
@@ -131,8 +141,12 @@ def deleteSchemaVersionInGsr(repoName):
         print(latestSchemaVersion)
         # Delete schema version
         deleteResponse = deleteSchemaVersion(schemaName, registryName, latestSchemaVersion)
-        
-        print(deleteResponse)
+        print("Deleted schema version %s-%s" % (schemaName, latestSchemaVersion))
+    except gsr.exceptions.InvalidInputException as ex:
+        print(str(ex))
+        if "Cannot delete checkpoint version" in str(ex):
+            deleteResponse = deleteSchema(schemaName, registryName)
+            print("Deleted schema %s" % (schemaName))
     except BaseException as ex:
         print(ex)
 

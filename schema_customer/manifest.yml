@@ -9,7 +9,7 @@ gsr:
     data_format: AVRO
     description: "Customer schema" 
     compatibility_mode: FORWARD
-  meta-tags:
+  meta_tags:
     topic:
       - customer
       - salesforce_customer
