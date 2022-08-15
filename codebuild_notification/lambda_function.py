@@ -113,32 +113,50 @@ def deleteSchema(schemaName, registryName):
     return response
 
 
-def sendMsgToSns(schemaName):
-    schemaName = schemaName.replace("schema-", "")
+def sendMsgToSns(repoName):
+    schemaName = repoName.replace("schema-", "")
 
-    message = '''New version of schema '{0}' is available!'''.format(schemaName)
-    response = sns.publish(
-                TopicArn=os.environ["SNSTopicArn"],
-                Message=message,
-                Subject='New Schema version available'
-            )
+    response = readFromManifestFile(repoName)
+
+    try:
+        # List latest schema version
+        latestSchemaVersion = getLatestSchemaVersion(response['schemaName'], response['registryName'])
+
+        message = '''New version <b>{0}</b> of schema <b>{1}</b> is available!'''.format(latestSchemaVersion, schemaName)
+        response = sns.publish(
+                    TopicArn=os.environ["SNSTopicArn"],
+                    Message=message,
+                    Subject='New Schema version available'
+                )
+    except BaseException as ex:
+        print(ex)
     return
 
 
-def deleteSchemaVersionInGsr(repoName):
-    # Read manifest.yml file
+def readFromManifestFile(repoName):
     content = getFile(repoName, MANIFEST_FILE_PATH)
     manifest_content = yaml.full_load(content)
 
     schemaName = manifest_content['gsr']['schema']['name']
     registryName = manifest_content['gsr']['registry']['name']
-    # schemaName = "customer"
-    # registryName = "enterprise_schemas"
+
+    return {
+        "schemaName": schemaName,
+        "registryName": registryName
+    }
+
+
+def deleteSchemaVersionInGsr(repoName):
+    # Read manifest.yml file
+    response = readFromManifestFile(repoName)
+
+    schemaName = response['schemaName']
+    registryName = response['registryName']
 
     try:
         # List latest schema version
         latestSchemaVersion = getLatestSchemaVersion(schemaName, registryName)
-        print(latestSchemaVersion)
+        
         # Delete schema version
         deleteResponse = deleteSchemaVersion(schemaName, registryName, latestSchemaVersion)
         print("Deleted schema version %s-%s" % (schemaName, latestSchemaVersion))
@@ -158,9 +176,6 @@ def getCommitDifferences(buildId, repoName):
         buildDetails = cb.batch_get_builds(ids=[buildId])
         commitId = buildDetails['builds'][0]['sourceVersion']
         repoName = repoName[repoName.rfind("/")+1:]
-
-        print(commitId)
-        print(repoName)
 
         lastCommit = getLastCommitLog(repoName, commitId)
 
