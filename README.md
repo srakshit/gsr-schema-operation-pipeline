@@ -32,9 +32,13 @@ Copy and execute the following set of commands to package event rule lambda func
 This lambda function is triggered by EventBridge when codebuild notification status is received.
 
     cd codebuild_notification
-    zip ../eventrule_lambda.zip lambda_function.py
+    pip install -r requirements.txt --target ./package
+    cd package
+    zip -r ../../eventrule_lambda.zip .
     cd ..
-    aws s3 cp eventrule_lambda.zip s3://gsr-schema-pipeline-<<Account-ID>>/codebuild-notification/
+    zip -g ../eventrule_lambda.zip lambda_function.py
+    cd ..
+    aws s3 cp eventrule_lambda.zip s3://gsr-schema-pipeline-940270119111/codebuild-notification/
     rm eventrule_lambda.zip
 
 Deploy the CFN stack.
