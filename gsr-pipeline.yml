@@ -434,7 +434,7 @@ Resources:
 Outputs:
   CodeCommitRepositoryCloneUrl:
     Description: CodeCommit repo clone url
-    Value: !GetAtt CodeCommitRepo.CloneUrlSsh
+    Value: !GetAtt CodeCommitRepo.CloneUrlHttp
   ArtifactName:
     Description: CodeArtifact repo
     Value: !GetAtt CodeArtifactRepository.Name
