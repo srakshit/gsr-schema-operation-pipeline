@@ -14,5 +14,5 @@ gsr:
       - customer
       - salesforce_customer
     owner:
-      name: "Subham Rakshit"
-      email: "rakssubh@amazon.co.uk"
+      name: "<<user-email>>"
+      email: "<<user-name>>"
