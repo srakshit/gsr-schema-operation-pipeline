@@ -428,10 +428,29 @@ Resources:
       Endpoint: !Ref TeamEmail
       Protocol: email
       TopicArn: !Ref CodeBuildStatusSNSTopic
+
+  Cloud9EC2Bastion:
+    Type: AWS::Cloud9::EnvironmentEC2
+    Properties: 
+      AutomaticStopTimeMinutes: 600
+      Description: Cloud9 EC2 environment
+      InstanceType: m5.large
+      Name: !Sub ${AWS::StackName}-Cloud9EC2-GSR-Pipeline
+      
 Outputs:
   CodeCommitRepositoryCloneUrl:
     Description: CodeCommit repo clone url
     Value: !GetAtt CodeCommitRepo.CloneUrlHttp
+  Cloud9IDE:
+    Value:
+      Fn::Join:
+      - ''
+      - - https://
+        - Ref: AWS::Region
+        - ".console.aws.amazon.com/cloud9/ide/"
+        - Ref: Cloud9EC2Bastion
+        - "?region="
+        - Ref: AWS::Region
   ArtifactName:
     Description: CodeArtifact repo
     Value: !GetAtt CodeArtifactRepository.Name
