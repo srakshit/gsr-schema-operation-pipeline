@@ -1,2 +1,2 @@
 # gsr_schema_customer
-Repo to store customer schema
+Repository to store customer schema

@@ -12,40 +12,40 @@ Parameters:
     Default: gsr-schema-domain
   CodeArtifactRepositoryName:
     Type: String
-    Description: Name of the CodeArtifactRepository
+    Description: Name of the CodeArtifact Repository
     Default: gsr-schema-mvn-repo
-  S3Bucket:
+  CodeS3Bucket:
     Type: String
-    Description: S3 Bucket containing schema & code
+    Description: S3 Bucket containing schema & lambda codes
     Default: gsr-schema-pipeline-940270119111
   CustomerSchemaCodeKey:
     Type: String
-    Description: Key of zipped code that would be checked in CodeCommit repo
+    Description: S3 Object Key of zipped schema related files that would be checked in CodeCommit repo
     Default: customer_schema/schema_customer.zip
   CodeCommitTriggerLambdaCodeKey:
     Type: String
-    Description: Key of lambda zipped code that would be triggered by CodeCommit events
+    Description: S3 Object Key of lambda zipped code that would be invoked by CodeCommit checkin
     Default: codecommit-trigger/codecommit_lambda.zip
   EventRuleLambdaCodeKey:
     Type: String
-    Description: Key of lambda zipped code that would be triggered by CodeCommit events
+    Description: S3 Object Key of lambda zipped code that would be invoked by Codebuild status events
     Default: codebuild-notification/eventrule_lambda.zip
-  CodeBuildStateSNSTopicName:
+  EmailNotificationSNSTopicName:
     Type: String
-    Description: SNS Topic to receive CodeBuild build status
+    Description: SNS Topic used to send out email notification
     Default: gsr-schema-notification
-  YourEmail:
+  TeamEmail:
     Type: String
-    Description: Email to receieve notification
+    Description: Email to receive notification
     AllowedPattern : (^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$)
     ConstraintDescription: Must be a valid email address
   AvroFilePath:
     Type: String
-    Description: Avro file path in CodeCommit repo
+    Description: Avro file path (excluding avro file name) in CodeCommit repo
     Default: src/main/resources/avro/
   ManifestFilePath:
     Type: String
-    Description: Manifest filename full path in CodeCommit repo
+    Description: Manifest file full path in CodeCommit repo
     Default: manifest.yml
   GlueSchemaRegistryName:
     Type: String
@@ -66,7 +66,7 @@ Resources:
       Code:
         BranchName: master
         S3: 
-          Bucket: !Ref S3Bucket
+          Bucket: !Ref CodeS3Bucket
           Key: !Ref CustomerSchemaCodeKey
       Triggers: 
         - Name: CodeCommitLambdaTrigger
@@ -95,9 +95,6 @@ Resources:
       ServiceRole: !GetAtt CodeBuildRole.Arn
       Artifacts:
         Type: NO_ARTIFACTS
-      Cache:
-        Location: !Ref S3Bucket
-        Type: S3
       Environment:
         Type: LINUX_CONTAINER
         ComputeType: BUILD_GENERAL1_SMALL
@@ -119,11 +116,11 @@ Resources:
     Properties:
       AssumeRolePolicyDocument:
         Statement:
-        - Action: ['sts:AssumeRole']
+        - Action: [sts:AssumeRole]
           Effect: Allow
           Principal:
             Service: [codebuild.amazonaws.com]
-        Version: '2012-10-17'
+        Version: "2012-10-17"
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/AWSCodeCommitPowerUser
         - arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess
@@ -131,13 +128,13 @@ Resources:
       Policies:
         - PolicyName: !Sub ${AWS::StackName}-CodeBuildAccess
           PolicyDocument:
-            Version: '2012-10-17'
+            Version: "2012-10-17"
             Statement:
               - Sid: BearerTokenPolicy
                 Action:
                   - sts:GetServiceBearerToken
                 Effect: Allow
-                Resource: '*'
+                Resource: "*"
                 Condition:
                   StringEquals:
                     sts:AWSServiceName: codeartifact.amazonaws.com
@@ -170,7 +167,7 @@ Resources:
                   - logs:DescribeLogStreams
                   - logs:PutLogEvents
                 Effect: Allow
-                Resource: !Sub 'arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:*'
+                Resource: !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:*"
               - Sid: S3GetObjectPolicy
                 Action:
                   - s3:PutObject
@@ -179,19 +176,19 @@ Resources:
                 Effect: Allow
                 Resource:
                 - !Join
-                  - ''
-                  - - 'arn:aws:s3:::'
-                    - !Ref 'S3Bucket'
+                  - ""
+                  - - "arn:aws:s3:::"
+                    - !Ref CodeS3Bucket
                 - !Join
-                  - ''
-                  - - 'arn:aws:s3:::'
-                    - !Ref 'S3Bucket'
+                  - ""
+                  - - "arn:aws:s3:::"
+                    - !Ref CodeS3Bucket
                     - /*          
               - Sid: CloudwatchEventsPolicy
                 Action:
                   - iam:PassRole
                 Effect: Allow
-                Resource: !Sub 'arn:aws:iam::${AWS::AccountId}:role/${AWS::StackName}-CodeBuildRole-*'
+                Resource: !Sub "arn:aws:iam::${AWS::AccountId}:role/${AWS::StackName}-CodeBuildRole-*"
                 Condition:
                   StringEquals:
                     iam:PassedToService: events.amazonaws.com
@@ -201,7 +198,7 @@ Resources:
     DependsOn: CodeCommitLambdaTriggerRole
     Properties:
       Code:
-        S3Bucket: !Ref S3Bucket
+        S3Bucket: !Ref CodeS3Bucket
         S3Key: !Ref CodeCommitTriggerLambdaCodeKey
       Description: Lambda function that will recieve CodeCommit events and will trigger CodeBuild docker image build job.
       FunctionName: !Sub ${CodeBuildProject}-lambda-trigger
@@ -226,7 +223,7 @@ Resources:
             Principal:
               Service:
                 - lambda.amazonaws.com
-        Version: '2012-10-17'
+        Version: "2012-10-17"
       Path: /
       Policies:
         - PolicyDocument:
@@ -239,7 +236,7 @@ Resources:
                   - logs:PutLogEvents
                 Effect: Allow
                 Resource:
-                  - !Sub 'arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:*'
+                  - !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:*"
                 Sid: LogAccessPolicy
               - Action:
                   - codecommit:GetTree
@@ -253,7 +250,7 @@ Resources:
                   - codecommit:BatchGetCommits
                 Effect: Allow
                 Resource:
-                  - !Sub 'arn:aws:codecommit:${AWS::Region}:${AWS::AccountId}:${CodeCommitRepoName}'
+                  - !Sub "arn:aws:codecommit:${AWS::Region}:${AWS::AccountId}:${CodeCommitRepoName}"
                 Sid: CodeCommitRead
               - Action:
                   - glue:CreateRegistry
@@ -267,8 +264,8 @@ Resources:
                   - glue:BatchGetCommits
                 Effect: Allow
                 Resource:
-                  - !Sub 'arn:aws:glue:${AWS::Region}:${AWS::AccountId}:registry/*'
-                  - !Sub 'arn:aws:glue:${AWS::Region}:${AWS::AccountId}:schema/*'
+                  - !Sub "arn:aws:glue:${AWS::Region}:${AWS::AccountId}:registry/*"
+                  - !Sub "arn:aws:glue:${AWS::Region}:${AWS::AccountId}:schema/*"
                 Sid: AWSGlueSchemaRegistryAccess
               - Action:
                   - codebuild:StartBuild
@@ -278,7 +275,7 @@ Resources:
                 Resource:
                   - !GetAtt CodeBuildProject.Arn
                 Sid: CodeBuildStartPolicy
-            Version: '2012-10-17'
+            Version: "2012-10-17"
           PolicyName: !Sub ${AWS::StackName}-codecommit-lambda-trigger
       RoleName: !Sub ${AWS::StackName}-codecommit-lambda-trigger-role
   
@@ -294,7 +291,7 @@ Resources:
     DependsOn: EventRuleLambdaRole
     Properties:
       Code:
-        S3Bucket: !Ref S3Bucket
+        S3Bucket: !Ref CodeS3Bucket
         S3Key: !Ref EventRuleLambdaCodeKey
       Description: Lambda function that will be invoked by EventRule on receiving build notification
       FunctionName: !Sub ${AWS::StackName}-codebuild-notification-lambda
@@ -319,7 +316,7 @@ Resources:
             Principal:
               Service:
                 - lambda.amazonaws.com
-        Version: '2012-10-17'
+        Version: "2012-10-17"
       Path: /
       Policies:
         - PolicyDocument:
@@ -328,14 +325,14 @@ Resources:
                   - logs:CreateLogGroup
                 Effect: Allow
                 Resource:
-                  - !Sub 'arn:aws:logs:${AWS::Region}:${AWS::AccountId}:*'
+                  - !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:*"
                 Sid: LogGroupCreationPolicy
               - Action:
                   - logs:CreateLogStream
                   - logs:PutLogEvents
                 Effect: Allow
                 Resource:
-                  - !Sub 'arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/${AWS::StackName}-codebuild-notification-lambda:*'
+                  - !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/${AWS::StackName}-codebuild-notification-lambda:*"
                 Sid: LogStreamPolicy
               - Action:
                   - SNS:Publish
@@ -349,9 +346,9 @@ Resources:
                   - codebuild:BatchGetBuilds
                 Effect: Allow
                 Resource: 
-                  - !Sub 'arn:aws:codecommit:${AWS::Region}:${AWS::AccountId}:${CodeCommitRepoName}'
-                  - !Sub 'arn:aws:codecommit:${AWS::Region}:${AWS::AccountId}:schema/*'
-                  - !Sub 'arn:aws:codecommit:${AWS::Region}:${AWS::AccountId}:registry/${GlueSchemaRegistryName}'
+                  - !Sub "arn:aws:codecommit:${AWS::Region}:${AWS::AccountId}:${CodeCommitRepoName}"
+                  - !Sub "arn:aws:codecommit:${AWS::Region}:${AWS::AccountId}:schema/*"
+                  - !Sub "arn:aws:codecommit:${AWS::Region}:${AWS::AccountId}:registry/${GlueSchemaRegistryName}"
                   - !GetAtt CodeBuildProject.Arn
                 Sid: CodeBuildCodeCommitAccess
               - Action:
@@ -359,9 +356,9 @@ Resources:
                   - glue:DeleteSchemaVersions
                   - glue:DeleteSchema
                 Effect: Allow
-                Resource: '*'
+                Resource: "*"
                 Sid: GlueAccess
-            Version: '2012-10-17'
+            Version: "2012-10-17"
           PolicyName: !Sub ${AWS::StackName}-codebuild-notification-lambda
       RoleName: !Sub ${AWS::StackName}-codebuild-notification-lambda-role
 
@@ -407,28 +404,28 @@ Resources:
       SourceArn: !GetAtt CodeBuildStatusNotificationEventRule.Arn
 
   EventTopicPolicy:
-    Type: 'AWS::SNS::TopicPolicy'
+    Type: AWS::SNS::TopicPolicy
     Properties:
       PolicyDocument:
         Statement:
           - Effect: Allow
             Principal:
               Service: events.amazonaws.com
-            Action: 'sns:Publish'
-            Resource: '*'
+            Action: sns:Publish
+            Resource: "*"
       Topics:
         - !Ref CodeBuildStatusSNSTopic
 
   CodeBuildStatusSNSTopic:
     Type: AWS::SNS::Topic
     Properties:
-      TopicName: !Ref CodeBuildStateSNSTopicName
+      TopicName: !Ref EmailNotificationSNSTopicName
       DisplayName: GSR Schema Notification
 
   SNSSubscription:
     Type: AWS::SNS::Subscription
     Properties:
-      Endpoint: !Ref YourEmail
+      Endpoint: !Ref TeamEmail
       Protocol: email
       TopicArn: !Ref CodeBuildStatusSNSTopic
 Outputs:

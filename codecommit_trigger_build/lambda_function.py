@@ -89,7 +89,8 @@ def createSchema(registryName, schemaName, dataFormat, compatibility, descriptio
             DataFormat=dataFormat,
             Compatibility=compatibility,
             Description=description,
-            SchemaDefinition=schemaDefinition
+            SchemaDefinition=schemaDefinition,
+            Tags=tags
         )
     return response
 
@@ -138,15 +139,12 @@ def registerSchemaInGsr(repoName, avroSchemaFilePath):
     tags = {}
     for key in metaTags.keys():
         if isinstance(metaTags[key], list):
-            tags[key] = ",".join(metaTags[key])
+            tags[key] = "/".join(metaTags[key])
         elif isinstance(metaTags[key], dict):
             for k in metaTags[key].keys():
                 tags[key+"_"+k] = metaTags[key][k]
         else:
             tags[key] = metaTags[key]
-
-    print(tags)
-    print(isinstance(metaTags[key], dict))
     
     try:
         #Create schema first time
