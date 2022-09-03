@@ -13,7 +13,7 @@ Copy and execute the following set of commands to upload customer avro schema co
     aws s3 cp schema_customer.zip s3://gsr-schema-pipeline-<<Account-ID>>/customer_schema/
     rm schema_customer.zip
 
-Copy and execute the following set of commands to package codecommit lambda function and upload it to S3. <br>
+Copy and execute the following set of commands to package codecommit lambda function and upload it to S3. Replace <<Account ID>> with your AWS AcountID<br>
 
 This lambda function is triggered by CodeCommit repo commits.
 
@@ -27,7 +27,7 @@ This lambda function is triggered by CodeCommit repo commits.
     aws s3 cp codecommit_lambda.zip s3://gsr-schema-pipeline-<<Account-ID>>/codecommit-trigger/
     rm codecommit_lambda.zip
 
-Copy and execute the following set of commands to package event rule lambda function and upload it to S3. <br>
+Copy and execute the following set of commands to package event rule lambda function and upload it to S3. Replace <<Account ID>> with your AWS AcountID<br>
 
 This lambda function is triggered by EventBridge when codebuild notification status is received.
 
@@ -38,7 +38,7 @@ This lambda function is triggered by EventBridge when codebuild notification sta
     cd ..
     zip -g ../eventrule_lambda.zip lambda_function.py
     cd ..
-    aws s3 cp eventrule_lambda.zip s3://gsr-schema-pipeline-940270119111/codebuild-notification/
+    aws s3 cp eventrule_lambda.zip s3://gsr-schema-pipeline-<<Account-ID>>/codebuild-notification/
     rm eventrule_lambda.zip
 
 Deploy the CFN stack.
@@ -46,8 +46,8 @@ Deploy the CFN stack.
 Provide the following input parameters:
 
 - Stack Name
-- S3Bucket (Provide the S3 bucket name created as per instructions above)
-- YourEmail
+- CodeS3Bucket (Provide the S3 bucket name created as per instructions above)
+- TeamEmail
 
 Keep other parameters to default value.
 
@@ -75,8 +75,8 @@ Execute the below set of commands to replace certain values in `buildspec.yml`, 
     sed -i '' "s/<<codeartifact-repo-name>>/$codeartifact_repo_name/g" pom.xml settings.xml
     sed -i '' "s/<<account-id>>/$account_id/g" pom.xml settings.xml buildspec.yml
     sed -i '' "s/<<codecommit-repo>>/$codecommit_repo/g" pom.xml
-    sed -i '' "s/<<user-email>>/$user_email/g" buildspec.yml
-    sed -i '' "s/<<user-name>>/$user_name/g" buildspec.yml
+    sed -i '' "s/<<user-email>>/$user_email/g" buildspec.yml manifest.yml
+    sed -i '' "s/<<user-name>>/$user_name/g" buildspec.yml manifest.yml
 
     git add manifest.yml pom.xml settings.xml buildspec.yml
     git commit -am "Integrated with CodeArtifact"
