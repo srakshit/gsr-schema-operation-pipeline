@@ -142,7 +142,7 @@ def registerSchemaInGsr(repoName, avroSchemaFilePath):
             tags[key] = "/".join(metaTags[key])
         elif isinstance(metaTags[key], dict):
             for k in metaTags[key].keys():
-                tags[key+"_"+k] = metaTags[key][k]
+                tags[key+"_"+k] = metaTags[key][k].replace("<<", "").replace(">>", "")
         else:
             tags[key] = metaTags[key]
     
