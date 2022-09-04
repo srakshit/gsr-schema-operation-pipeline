@@ -47,17 +47,18 @@ Provide the following input parameters:
 
 - Stack Name
 - CodeS3Bucket (Provide the S3 bucket name created as per instructions above)
-- TeamEmail
+- TeamEmail (Provide your email address to receive email notification when schema is created in AWS Glue Schema Registry)
 
-Keep other parameters to default value.
+Keep other CloudFormation parameters to default value.
 
 Once the stack is deployed, you would see a CodeBuild project is triggered. Wait for this project to fail before moving on to the next step.
 
-Confirm the SNS Topic subscription email to receive email confirmation when a schema is built.
+You would have receive an email to confirm subscription to SNS topic. Confirm the subscription to receive notification.
 
 Get the `CodeCommitRepositoryCloneUrl` from Cloudformation output.
+Open the AWS Cloud9. You can get the Cloud9IDE url from CloudFormation output.
 
-Git clone the repo in your local.
+Git clone the repo in Cloud9.
 
 Execute the below set of commands to replace certain values in `buildspec.yml`, `manifest.yml`, `pom.xml`, `settings.xml`
 
@@ -70,21 +71,20 @@ Execute the below set of commands to replace certain values in `buildspec.yml`, 
     export user_email=<<Your Email>>
     export user_name=<<Your Name>>
 
-    sed -i '' "s/<<region>>/$region/g" manifest.yml pom.xml settings.xml buildspec.yml
-    sed -i '' "s/<<codeartifact-domain-name>>/$codeartifact_domain_name/g" pom.xml settings.xml buildspec.yml
-    sed -i '' "s/<<codeartifact-repo-name>>/$codeartifact_repo_name/g" pom.xml settings.xml
-    sed -i '' "s/<<account-id>>/$account_id/g" pom.xml settings.xml buildspec.yml
-    sed -i '' "s/<<codecommit-repo>>/$codecommit_repo/g" pom.xml
-    sed -i '' "s/<<user-email>>/$user_email/g" buildspec.yml manifest.yml
-    sed -i '' "s/<<user-name>>/$user_name/g" buildspec.yml manifest.yml
+    sed -i "s/<<region>>/$region/g" manifest.yml pom.xml settings.xml buildspec.yml
+    sed -i "s/<<codeartifact-domain-name>>/$codeartifact_domain_name/g" pom.xml settings.xml buildspec.yml
+    sed -i "s/<<codeartifact-repo-name>>/$codeartifact_repo_name/g" pom.xml settings.xml
+    sed -i "s/<<account-id>>/$account_id/g" pom.xml settings.xml buildspec.yml
+    sed -i "s/<<codecommit-repo>>/$codecommit_repo/g" pom.xml
+    sed -i "s/<<user-email>>/$user_email/g" buildspec.yml manifest.yml
+    sed -i "s/<<user-name>>/$user_name/g" buildspec.yml manifest.yml
 
     git add manifest.yml pom.xml settings.xml buildspec.yml
     git commit -am "Integrated with CodeArtifact"
     git push
 
-
-This would trigger a build. Check GSR, CodeBuild, CodeArtifact. Also you should receive an email confirming a new customer schema is created.
+This would trigger a build. Check AWS Glue Schema Registry, CodeBuild, CodeArtifact. Also you should receive an email confirming a new customer schema is created.
 
 Update the `Customer.avsc` file and git push to the CodeCommit repo.
 
-This should trigger another build and a new version of schema would be registered with the pojo found in the CodeArtifact
+This should trigger another build and a new version of schema would be registered in AWS Glue Schema Registry and the generated POJO JAR can be found in the CodeArtifact.
