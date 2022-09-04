@@ -122,7 +122,7 @@ def sendMsgToSns(repoName):
         # List latest schema version
         latestSchemaVersion = getLatestSchemaVersion(response['schemaName'], response['registryName'])
 
-        message = '''New version <b>{0}</b> of schema <b>{1}</b> is available!'''.format(latestSchemaVersion, schemaName)
+        message = '''New version {0} of schema {1} is available!'''.format(latestSchemaVersion, schemaName)
         response = sns.publish(
                     TopicArn=os.environ["SNSTopicArn"],
                     Message=message,
