@@ -142,6 +142,9 @@ def registerSchemaInGsr(repoName, avroSchemaFilePath):
             tags[key] = "/".join(metaTags[key])
         elif isinstance(metaTags[key], dict):
             for k in metaTags[key].keys():
+                # Unless the angular brackets are replaced the initial build wasn't getting triggered.
+                # The initial build always fails as it doesn't have the necessary environment variables
+                # On build failure, the schema from AWS Glue Schema Registry is removed. 
                 tags[key+"_"+k] = metaTags[key][k].replace("<<", "").replace(">>", "")
         else:
             tags[key] = metaTags[key]
