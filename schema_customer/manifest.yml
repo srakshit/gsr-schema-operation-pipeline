@@ -1,15 +1,12 @@
 schema:
-  file_name: Customer.avsc
-gsr:
+  file-name: Customer.avsc
   region: <<region>>
-  registry:
-    name: enterprise_schemas
-  schema:
-    name: customer
-    data_format: AVRO
-    description: "Customer schema" 
-    compatibility_mode: FORWARD
-  meta_tags:
+  registry-name: enterprise_schemas
+  schema-name: customer
+  data-format: AVRO
+  description: "Customer schema" 
+  compatibility-mode: FORWARD
+  meta-tags:
     topic:
       - customer
       - salesforce_customer
