@@ -129,13 +129,13 @@ def registerSchemaInGsr(repoName, avroSchemaFilePath):
     avroSchema = json.loads(avroSchema)
     schemaDefinition = json.dumps(avroSchema)
 
-    registryName = manifest_content['registry-name']
-    schemaName=manifest_content['schema-name']
-    dataFormat=manifest_content['data-format']
-    compatibility=manifest_content['compatibility-mode']
-    description=manifest_content['description']
+    registryName = manifest_content['schema']['registry-name']
+    schemaName=manifest_content['schema']['schema-name']
+    dataFormat=manifest_content['schema']['data-format']
+    compatibility=manifest_content['schema']['compatibility-mode']
+    description=manifest_content['schema']['description']
 
-    metaTags = manifest_content['meta-tags']
+    metaTags = manifest_content['schema']['meta-tags']
     tags = {}
     for key in metaTags.keys():
         if isinstance(metaTags[key], list):
@@ -152,7 +152,7 @@ def registerSchemaInGsr(repoName, avroSchemaFilePath):
     try:
         #Create schema first time
         createSchema(registryName, schemaName, dataFormat, compatibility, description, schemaDefinition, tags)
-        print("Created new schema - " + manifest_content['schema-name'])
+        print("Created new schema - " + manifest_content['schema']['schema-name'])
         
         #Handle malformed schema
         doTriggerBuild = True

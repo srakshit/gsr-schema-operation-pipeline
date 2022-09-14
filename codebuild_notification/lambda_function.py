@@ -137,8 +137,8 @@ def readFromManifestFile(repoName):
     content = getFile(repoName, MANIFEST_FILE_PATH)
     manifest_content = yaml.full_load(content)
 
-    schemaName = manifest_content['schema-name']
-    registryName = manifest_content['registry-name']
+    schemaName = manifest_content['schema']['schema-name']
+    registryName = manifest_content['schema']['registry-name']
 
     return {
         "schemaName": schemaName,
