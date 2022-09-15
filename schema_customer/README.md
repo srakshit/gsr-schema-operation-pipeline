@@ -8,14 +8,16 @@ Repository to store customer schema.
 To register schemas through pipeline, each schema needs its own repository. Here is the structure of the repo which contains the required files, including the Avro schema. 
 
 ```console
-- schema_customer
- -- src/main/resources/avro
-    --- customer.avsc
- -- buildspec.yaml
- -- manifest.yaml
- -- pom.xml
- -- settings.xml
+schema_customer
+ +-- src/main/resources/avro
+     +-- customer.avsc
+ +-- buildspec.yaml
+ +-- manifest.yaml
+ +-- pom.xml
+ +-- settings.xml
+
 ```
+
 1. customer.avsc - Avro schema file that needs to be registered with AWS Glue Schema Registry.
 2. buildspec.yml - AWS CodeBuild spec file, containing build details.
 3. manifest.yml – Manifest file which contains details regarding the schema registry, schema, compatibility mode, and other details required to register the schema with AWS Glue Schema Registry.

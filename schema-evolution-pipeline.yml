@@ -26,7 +26,7 @@ Parameters:
     Type: String
     Description: SNS Topic used to send out email notification
     Default: schema-evolution-notification
-  TeamEmail:
+  Email:
     Type: String
     Description: Email to receive notification
     AllowedPattern : (^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$)
@@ -35,13 +35,13 @@ Parameters:
 Mappings:
   S3Info:
     CodeS3Bucket:
-      Name: gsr-schema-pipeline-940270119111
+      Name: aws-blogs-artifacts-public
     CustomerSchemaCodeKey:
-      Name: customer_schema/schema_customer.zip
+      Name: artifacts/BDB-2655/customer_schema/schema_customer.zip
     CodeCommitTriggerLambdaCodeKey:
-      Name: codecommit-trigger/codecommit_lambda.zip
+      Name: artifacts/BDB-2655/codecommit-trigger/codecommit_lambda.zip
     EventRuleLambdaCodeKey:
-      Name: codebuild-notification/eventrule_lambda.zip
+      Name: artifacts/BDB-2655/codebuild-notification/eventrule_lambda.zip
   FilePath:
     Avro:
       Path: src/main/resources/avro/
@@ -454,7 +454,7 @@ Resources:
   SNSSubscription:
     Type: AWS::SNS::Subscription
     Properties:
-      Endpoint: !Ref TeamEmail
+      Endpoint: !Ref Email
       Protocol: email
       TopicArn: !Ref CodeBuildStatusSNSTopic
 

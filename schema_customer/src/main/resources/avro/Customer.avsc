@@ -1,7 +1,7 @@
 {
  "namespace": "pojo.customer",
  "type": "record",
- "name": "Customer",
+ "name": "customer",
  "fields": [
  {"name": "first_name", "type": "string"},
  {"name": "last_name", "type": "string"}
