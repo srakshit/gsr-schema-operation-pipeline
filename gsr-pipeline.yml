@@ -9,48 +9,44 @@ Parameters:
   CodeArtifactDomainName:
     Type: String
     Description: Name of the CodeArtifact Domain
-    Default: gsr-schema-domain
+    Default: schema-artifact-domain
   CodeArtifactRepositoryName:
     Type: String
     Description: Name of the CodeArtifact Repository
-    Default: gsr-schema-mvn-repo
-  CodeS3Bucket:
+    Default: schema-artifactory
+  CodeBuildProjectName:
     Type: String
-    Description: S3 Bucket containing schema & lambda codes
-    Default: gsr-schema-pipeline-940270119111
-  CustomerSchemaCodeKey:
+    Description: Name of the CodeBuild Project
+    Default: schema-evolution-build
+  GlueSchemaRegistryName:
     Type: String
-    Description: S3 Object Key of zipped schema related files that would be checked in CodeCommit repo
-    Default: customer_schema/schema_customer.zip
-  CodeCommitTriggerLambdaCodeKey:
-    Type: String
-    Description: S3 Object Key of lambda zipped code that would be invoked by CodeCommit checkin
-    Default: codecommit-trigger/codecommit_lambda.zip
-  EventRuleLambdaCodeKey:
-    Type: String
-    Description: S3 Object Key of lambda zipped code that would be invoked by Codebuild status events
-    Default: codebuild-notification/eventrule_lambda.zip
+    Description: Name of Glue Schema Registry
+    Default: enterprise_schemas
   EmailNotificationSNSTopicName:
     Type: String
     Description: SNS Topic used to send out email notification
-    Default: gsr-schema-notification
+    Default: schema-evolution-notification
   TeamEmail:
     Type: String
     Description: Email to receive notification
     AllowedPattern : (^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$)
     ConstraintDescription: Must be a valid email address
-  AvroFilePath:
-    Type: String
-    Description: Avro file path (excluding avro file name) in CodeCommit repo
-    Default: src/main/resources/avro/
-  ManifestFilePath:
-    Type: String
-    Description: Manifest file full path in CodeCommit repo
-    Default: manifest.yml
-  GlueSchemaRegistryName:
-    Type: String
-    Description: Name of Glue Schema Registry
-    Default: enterprise_schemas
+
+Mappings:
+  S3Info:
+    CodeS3Bucket:
+      Name: gsr-schema-pipeline-940270119111
+    CustomerSchemaCodeKey:
+      Name: customer_schema/schema_customer.zip
+    CodeCommitTriggerLambdaCodeKey:
+      Name: codecommit-trigger/codecommit_lambda.zip
+    EventRuleLambdaCodeKey:
+      Name: codebuild-notification/eventrule_lambda.zip
+  FilePath:
+    Avro:
+      Path: src/main/resources/avro/
+    Manifest:
+      Path: manifest.yml
 
 Resources:
   GlueSchemaRegistry:
@@ -66,8 +62,14 @@ Resources:
       Code:
         BranchName: master
         S3: 
-          Bucket: !Ref CodeS3Bucket
-          Key: !Ref CustomerSchemaCodeKey
+          Bucket: !FindInMap 
+                    - S3Info
+                    - CodeS3Bucket
+                    - Name
+          Key: !FindInMap 
+                  - S3Info
+                  - CustomerSchemaCodeKey
+                  - Name
       Triggers: 
         - Name: CodeCommitLambdaTrigger
           DestinationArn: !GetAtt  CodeCommitLambdaTrigger.Arn
@@ -91,7 +93,7 @@ Resources:
     Type: AWS::CodeBuild::Project
     Properties:
       Description: CodeBuild pipeline to serialise schema
-      Name: !Sub ${AWS::StackName}-gsr-schema-build
+      Name: !Ref CodeBuildProjectName
       ServiceRole: !GetAtt CodeBuildRole.Arn
       Artifacts:
         Type: NO_ARTIFACTS
@@ -108,7 +110,7 @@ Resources:
       TimeoutInMinutes: 10
       LogsConfig: 
         CloudWatchLogs:
-          GroupName: gsr-schema-build
+          GroupName: !Ref CodeBuildProjectName
           Status: ENABLED
 
   CodeBuildRole:
@@ -178,11 +180,17 @@ Resources:
                 - !Join
                   - ""
                   - - "arn:aws:s3:::"
-                    - !Ref CodeS3Bucket
+                    - !FindInMap 
+                      - S3Info
+                      - CodeS3Bucket
+                      - Name
                 - !Join
                   - ""
                   - - "arn:aws:s3:::"
-                    - !Ref CodeS3Bucket
+                    - !FindInMap 
+                      - S3Info
+                      - CodeS3Bucket
+                      - Name
                     - /*          
               - Sid: CloudwatchEventsPolicy
                 Action:
@@ -198,10 +206,16 @@ Resources:
     DependsOn: CodeCommitLambdaTriggerRole
     Properties:
       Code:
-        S3Bucket: !Ref CodeS3Bucket
-        S3Key: !Ref CodeCommitTriggerLambdaCodeKey
+        S3Bucket: !FindInMap 
+                    - S3Info
+                    - CodeS3Bucket
+                    - Name
+        S3Key: !FindInMap 
+                  - S3Info
+                  - CodeCommitTriggerLambdaCodeKey
+                  - Name
       Description: Lambda function that will recieve CodeCommit events and will trigger CodeBuild docker image build job.
-      FunctionName: !Sub ${CodeBuildProject}-lambda-trigger
+      FunctionName: !Sub ${CodeBuildProjectName}-lambda-trigger
       Handler: lambda_function.lambda_handler
       MemorySize: 512
       Role: !GetAtt CodeCommitLambdaTriggerRole.Arn
@@ -210,9 +224,15 @@ Resources:
       Environment:
         Variables:
           CODE_BUILD_PROJECT: !Ref CodeBuildProject
-          AVRO_FILE_PATH: !Ref AvroFilePath
-          MANIFEST_FILE_PATH: !Ref ManifestFilePath
-  
+          AVRO_FILE_PATH: !FindInMap 
+                            - FilePath
+                            - Avro
+                            - Path
+          MANIFEST_FILE_PATH: !FindInMap 
+                                - FilePath
+                                - Manifest
+                                - Path
+      
   CodeCommitLambdaTriggerRole:
     Type: AWS::IAM::Role
     Properties:
@@ -291,10 +311,16 @@ Resources:
     DependsOn: EventRuleLambdaRole
     Properties:
       Code:
-        S3Bucket: !Ref CodeS3Bucket
-        S3Key: !Ref EventRuleLambdaCodeKey
+        S3Bucket: !FindInMap 
+                    - S3Info
+                    - CodeS3Bucket
+                    - Name
+        S3Key: !FindInMap 
+                  - S3Info
+                  - EventRuleLambdaCodeKey
+                  - Name
       Description: Lambda function that will be invoked by EventRule on receiving build notification
-      FunctionName: !Sub ${AWS::StackName}-codebuild-notification-lambda
+      FunctionName: !Sub ${CodeBuildProjectName}-notification-lambda
       Handler: lambda_function.lambda_handler
       MemorySize: 128
       Role: !GetAtt EventRuleLambdaRole.Arn
@@ -304,7 +330,10 @@ Resources:
         Variables:
           SNSTopicArn: !Ref CodeBuildStatusSNSTopic
           CODE_BUILD_PROJECT: !Ref CodeBuildProject
-          MANIFEST_FILE_PATH: !Ref ManifestFilePath
+          MANIFEST_FILE_PATH: !FindInMap 
+                                - FilePath
+                                - Manifest
+                                - Path
   
   EventRuleLambdaRole:
     Type: AWS::IAM::Role
@@ -434,8 +463,8 @@ Resources:
     Properties: 
       AutomaticStopTimeMinutes: 600
       Description: Cloud9 EC2 environment
-      InstanceType: m5.large
-      Name: !Sub ${AWS::StackName}-Cloud9EC2-GSR-Pipeline
+      InstanceType: t3.small
+      Name: !Sub ${CodeBuildProjectName}-cloud9
       
 Outputs:
   CodeCommitRepositoryCloneUrl:

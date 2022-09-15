@@ -1,10 +1,10 @@
 schema:
-  file-name: Customer.avsc
+  file-name: customer.avsc
   region: <<region>>
   registry-name: enterprise_schemas
   schema-name: customer
   data-format: AVRO
-  description: "Customer schema" 
+  description: "customer schema" 
   compatibility-mode: FORWARD
   meta-tags:
     topic:
