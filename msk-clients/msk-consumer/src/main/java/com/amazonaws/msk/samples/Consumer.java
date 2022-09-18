@@ -45,7 +45,7 @@ public class Consumer
         KafkaConsumer<String, Customer> consumer = new KafkaConsumer<>(props);
         consumer.subscribe(Collections.singletonList("customer"));
 
-        int count = 1;
+        int count = 0;
         while (true) {
             final ConsumerRecords<String, Customer> records = consumer.poll(Duration.ofMillis(1000));
             for (final ConsumerRecord<String, Customer> record : records) {
