@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <groupId>com.amazonaws.msk.samples</groupId>
+  <artifactId>msk-clients</artifactId>
+  <version>1.0-SNAPSHOT</version>
+  <packaging>pom</packaging>
+  <name>msk-clients</name>
+
+  <modules>
+    <module>msk-consumer</module>
+    <module>msk-producer</module>
+  </modules>
+
+  <properties>
+    <kafka.version>2.8.1</kafka.version>
+    <avro.version>1.7.7</avro.version>
+    <slf4j.version>1.7.36</slf4j.version>
+    <schema.registry.version>1.1.9</schema.registry.version>
+    <schema.customer.version>1.0</schema.customer.version>
+    <java.version>11</java.version>
+    <aws.msk.iam.auth>1.1.0</aws.msk.iam.auth>
+    <amazon.software.version>2.17.276</amazon.software.version>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+</properties>
+<dependencyManagement>
+  <dependencies>
+    <dependency>
+      <groupId>software.amazon.awssdk</groupId>
+      <artifactId>sts</artifactId>
+      <version>${amazon.software.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>com.github.javafaker</groupId>
+      <artifactId>javafaker</artifactId>
+      <version>1.0.2</version>
+    </dependency>
+
+    <dependency>
+      <groupId>com.amazonaws.schema.samples</groupId>
+      <artifactId>schema_customer</artifactId>
+      <version>${schema.customer.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.apache.avro</groupId>
+      <artifactId>avro-maven-plugin</artifactId>
+      <version>${avro.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>software.amazon.msk</groupId>
+      <artifactId>aws-msk-iam-auth</artifactId>
+      <version>${aws.msk.iam.auth}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.apache.kafka</groupId>
+      <artifactId>kafka-clients</artifactId>
+      <version>${kafka.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>software.amazon.glue</groupId>
+      <artifactId>schema-registry-serde</artifactId>
+      <version>${schema.registry.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-log4j12</artifactId>
+      <version>${slf4j.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>software.amazon.awssdk</groupId>
+      <artifactId>utils</artifactId>
+      <version>${amazon.software.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>software.amazon.awssdk</groupId>
+      <artifactId>protocol-core</artifactId>
+      <version>${amazon.software.version}</version>
+    </dependency>
+  </dependencies>
+</dependencyManagement>
+</project>
