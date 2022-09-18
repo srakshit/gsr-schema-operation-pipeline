@@ -54,15 +54,15 @@
       <artifactId>slf4j-log4j12</artifactId>
     </dependency>
 
-    <dependency>
-      <groupId>software.amazon.awssdk</groupId>
-      <artifactId>utils</artifactId>
-    </dependency>
+<!--    <dependency>-->
+<!--      <groupId>software.amazon.awssdk</groupId>-->
+<!--      <artifactId>utils</artifactId>-->
+<!--    </dependency>-->
 
-    <dependency>
-      <groupId>software.amazon.awssdk</groupId>
-      <artifactId>protocol-core</artifactId>
-    </dependency>
+<!--    <dependency>-->
+<!--      <groupId>software.amazon.awssdk</groupId>-->
+<!--      <artifactId>protocol-core</artifactId>-->
+<!--    </dependency>-->
 
   </dependencies>
 
