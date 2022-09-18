@@ -14,14 +14,10 @@
 
   <properties>
     <java.version>11</java.version>
+    <schema.customer.version>1.1</schema.customer.version>
   </properties>
 
   <dependencies>
-
-    <dependency>
-      <groupId>software.amazon.awssdk</groupId>
-      <artifactId>sts</artifactId>
-    </dependency>
 
     <dependency>
       <groupId>com.github.javafaker</groupId>
@@ -67,6 +63,7 @@
       <groupId>software.amazon.awssdk</groupId>
       <artifactId>protocol-core</artifactId>
     </dependency>
+
   </dependencies>
 
   <build>

@@ -13,7 +13,7 @@ import org.apache.kafka.common.config.SaslConfigs;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import pojo.customer.customer;
+import pojo.customer.Customer;
 
 import java.time.Duration;
 import java.util.Collections;
@@ -42,14 +42,14 @@ public class Consumer
 
         logger.info("Starting to consume records...");
 
-        KafkaConsumer<String, customer> consumer = new KafkaConsumer<String, customer>(props);
+        KafkaConsumer<String, Customer> consumer = new KafkaConsumer<>(props);
         consumer.subscribe(Collections.singletonList("customer"));
 
         int count = 1;
         while (true) {
-            final ConsumerRecords<String, customer> records = consumer.poll(Duration.ofMillis(1000));
-            for (final ConsumerRecord<String, customer> record : records) {
-                final customer customer = record.value();
+            final ConsumerRecords<String, Customer> records = consumer.poll(Duration.ofMillis(1000));
+            for (final ConsumerRecord<String, Customer> record : records) {
+                final Customer customer = record.value();
                 logger.info("Record #" + count + ": "+ customer.getFirstName().toString() + " " + customer.getLastName().toString());
                 count++;
             }

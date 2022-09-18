@@ -12,14 +12,8 @@ import org.apache.kafka.common.errors.SerializationException;
 import org.apache.kafka.common.serialization.StringSerializer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import pojo.customer.customer;
-import software.amazon.awssdk.regions.Region;
+import pojo.customer.Customer;
 import software.amazon.awssdk.services.glue.model.DataFormat;
-import software.amazon.awssdk.services.sts.StsClient;
-import software.amazon.awssdk.services.sts.model.AssumeRoleRequest;
-import software.amazon.awssdk.services.sts.model.AssumeRoleResponse;
-import software.amazon.awssdk.services.sts.model.Credentials;
-import software.amazon.awssdk.services.sts.model.StsException;
 
 import java.util.Properties;
 
@@ -47,18 +41,18 @@ public class Producer
         props.setProperty(AWSSchemaRegistryConstants.SCHEMA_NAME, "customer");
         props.setProperty(AWSSchemaRegistryConstants.AVRO_RECORD_TYPE, AvroRecordType.SPECIFIC_RECORD.getName());
 
-        assumeGlueSchemaRegistryRole();
-        KafkaProducer<String, customer> producer = new KafkaProducer<>(props);
+        KafkaProducer<String, Customer> producer = new KafkaProducer<>(props);
         logger.info("Starting to send records...");
 
         Faker faker = new Faker();
-        customer customer = new customer();
+        Customer customer = new Customer();
         try {
             for(int i = 0; i < 5; i ++)
             {
                 customer.setFirstName(faker.name().firstName());
                 customer.setLastName(faker.name().lastName());
-                ProducerRecord<String, customer> record = new ProducerRecord<>("customer", customer);
+                customer.setCity(faker.address().city());
+                ProducerRecord<String, Customer> record = new ProducerRecord<>("customer", customer);
                 producer.send(record);
                 logger.info("Sent message #" + i);
                 Thread.sleep(1000L);
@@ -66,29 +60,6 @@ public class Producer
         producer.flush();
         } catch(final InterruptedException | SerializationException e) {
             e.printStackTrace();
-        }
-    }
-
-
-    public static void assumeGlueSchemaRegistryRole() {
-        try {
-            Region region = Region.of("us-east-1");
-//            if(!Region.regions().contains(region))
-//                throw new RuntimeException("Region : " + regionName + " is invalid.");
-            StsClient stsClient = StsClient.builder().region(region).build();
-            AssumeRoleRequest roleRequest = AssumeRoleRequest.builder()
-                    .roleArn("arn:aws:iam::940270119111:role/msksls-clickstream-EC2Role-11M4I4VE59TGV")
-                    .roleSessionName("kafka-producer-cross-account-glue-schemaregistry-demo")
-                    .build();
-            AssumeRoleResponse roleResponse = stsClient.assumeRole(roleRequest);
-            Credentials myCreds = roleResponse.credentials();
-            System.setProperty("aws.accessKeyId", myCreds.accessKeyId());
-            System.setProperty("aws.secretAccessKey", myCreds.secretAccessKey());
-            System.setProperty("aws.sessionToken", myCreds.sessionToken());
-            stsClient.close();
-        } catch (StsException e) {
-            logger.error(e.getMessage());
-            System.exit(1);
         }
     }
 }

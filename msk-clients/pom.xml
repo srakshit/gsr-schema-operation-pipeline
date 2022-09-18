@@ -19,20 +19,15 @@
     <kafka.version>2.8.1</kafka.version>
     <avro.version>1.7.7</avro.version>
     <slf4j.version>1.7.36</slf4j.version>
+    <amazon.software.version>2.17.276</amazon.software.version>
     <schema.registry.version>1.1.9</schema.registry.version>
     <schema.customer.version>1.0</schema.customer.version>
     <java.version>11</java.version>
     <aws.msk.iam.auth>1.1.0</aws.msk.iam.auth>
-    <amazon.software.version>2.17.276</amazon.software.version>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 </properties>
 <dependencyManagement>
   <dependencies>
-    <dependency>
-      <groupId>software.amazon.awssdk</groupId>
-      <artifactId>sts</artifactId>
-      <version>${amazon.software.version}</version>
-    </dependency>
 
     <dependency>
       <groupId>com.github.javafaker</groupId>
@@ -87,6 +82,7 @@
       <artifactId>protocol-core</artifactId>
       <version>${amazon.software.version}</version>
     </dependency>
+
   </dependencies>
 </dependencyManagement>
 </project>
